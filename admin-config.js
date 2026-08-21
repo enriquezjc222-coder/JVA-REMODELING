@@ -1,6 +1,6 @@
 window.JZX_ADMIN_CONFIG = {
-  googleClientId: "",
-  allowedGoogleEmail: "",
+  googleClientId: "1017916128964-bvk8cghoda0hddm4u8i563ea57plgtsk.apps.googleusercontent.com",
+  allowedGoogleEmail: "jvaremodeling1599@gmail.com",
   productionMode: false,
   firebase: {
     enabled: false,
