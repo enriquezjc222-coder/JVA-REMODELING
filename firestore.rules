@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email == "YOUR_ADMIN_EMAIL@gmail.com";
+    }
+
+    match /sites/jmx-public {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+
+    // Public website traffic counters.
+    // Visitors can only add exactly +1 to the counters. They cannot read,
+    // subtract, overwrite totals, or edit arbitrary fields.
+    match /traffic/global {
+      allow read: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly(['views', 'updatedAt'])
+        && request.resource.data.views == 1;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views', 'updatedAt'])
+        && request.resource.data.views == resource.data.views + 1;
+      allow delete: if false;
+    }
+
+    match /traffic/{monthlyDoc} {
+      allow read: if isAdmin();
+      allow create: if monthlyDoc.matches('monthly_[0-9]{4}-[0-9]{2}')
+        && request.resource.data.keys().hasOnly(['views', 'monthKey', 'updatedAt'])
+        && request.resource.data.views == 1
+        && request.resource.data.monthKey is string;
+      allow update: if monthlyDoc.matches('monthly_[0-9]{4}-[0-9]{2}')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views', 'updatedAt'])
+        && request.resource.data.views == resource.data.views + 1
+        && request.resource.data.monthKey == resource.data.monthKey;
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
