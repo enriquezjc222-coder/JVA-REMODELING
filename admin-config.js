@@ -1,20 +1,20 @@
 window.JZX_ADMIN_CONFIG = {
-  googleClientId: "1017916128964-bvk8cghoda0hddm4u8i563ea57plgtsk.apps.googleusercontent.com",
+  googleClientId: "",
   allowedGoogleEmail: "jvaremodeling1599@gmail.com",
-  productionMode: false,
+  productionMode: true,
   firebase: {
-    enabled: false,
+    enabled: true,
     settingsDoc: "sites/jmx-public",
     assetFolder: "jmx-site-assets",
     trafficGlobalDoc: "traffic/global",
     trafficMonthlyPrefix: "traffic/monthly_",
     config: {
-      apiKey: "",
-      authDomain: "",
-      projectId: "",
-      storageBucket: "",
-      messagingSenderId: "",
-      appId: ""
+      apiKey: "AIzaSyC3LV0sl6vYP-diNF1_JSy0o4oS3tTpKXQ",
+      authDomain: "jva-remodeling.firebaseapp.com",
+      projectId: "jva-remodeling",
+      storageBucket: "jva-remodeling.firebasestorage.app",
+      messagingSenderId: "574760018763",
+      appId: "1:574760018763:web:2c4aa0185fe6d0acc43ece"
     }
   }
 };
