@@ -57,12 +57,49 @@ function makeVisibilitySwitch(checked,onChange,labelText='Visible'){
   const wrap=document.createElement('span');
   wrap.className='visibility-switch';
   wrap.title='Show or hide this item on the public website';
+  wrap.setAttribute('role','switch');
+  wrap.setAttribute('tabindex','0');
+
   const input=document.createElement('input');
-  input.type='checkbox'; input.checked=checked; input.setAttribute('aria-label',labelText||'Visibility');
-  const slider=document.createElement('span'); slider.className='visibility-slider';
-  const label=document.createElement('span'); label.className='visibility-switch-text'; label.textContent=labelText;
+  input.type='checkbox';
+  input.checked=Boolean(checked);
+  input.setAttribute('aria-label',labelText||'Visibility');
+
+  const slider=document.createElement('span');
+  slider.className='visibility-slider';
+  const label=document.createElement('span');
+  label.className='visibility-switch-text';
+  label.textContent=labelText;
+
+  const syncAria=()=>wrap.setAttribute('aria-checked',input.checked?'true':'false');
+  const commit=()=>{
+    syncAria();
+    onChange(input.checked);
+  };
+  const toggle=()=>{
+    input.checked=!input.checked;
+    input.dispatchEvent(new Event('change',{bubbles:true}));
+  };
+
   wrap.append(input,slider,label);
-  input.addEventListener('change',()=>onChange(input.checked));
+  syncAria();
+
+  input.addEventListener('change',commit);
+
+  // The real checkbox is visually hidden. Make the entire rendered switch
+  // (track, knob and text) clickable/touchable instead of relying on the
+  // hidden input to receive pointer events.
+  wrap.addEventListener('click',e=>{
+    e.preventDefault();
+    toggle();
+  });
+  wrap.addEventListener('keydown',e=>{
+    if(e.key===' ' || e.key==='Enter'){
+      e.preventDefault();
+      toggle();
+    }
+  });
+
   return wrap;
 }
 function sectionVisible(key){ensureVisibility();return visibilityOn(data.visibility.sections[key]);}
