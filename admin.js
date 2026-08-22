@@ -8,7 +8,22 @@ let data=(()=>{try{return deepMerge(defaults,JSON.parse(localStorage.getItem(STO
 const cloudOn=()=>Boolean(window.JZXCloud?.enabled?.());
 let cloudTimer=null, rendered=false;
 const status=t=>{const st=document.querySelector('#saveStatus');if(st)st.textContent=t};
-const queueCloudSave=()=>{if(!cloudOn())return;clearTimeout(cloudTimer);cloudTimer=setTimeout(async()=>{try{await window.JZXCloud.saveSettings(data);status('Published to cloud.');}catch(e){console.warn(e);status('Saved locally — cloud publish needs admin sign-in/config.')}},900)};
+const queueCloudSave=()=>{
+  if(!cloudOn())return;
+  clearTimeout(cloudTimer);
+  cloudTimer=setTimeout(async()=>{
+    try{
+      data.__meta=data.__meta||{};
+      data.__meta.publishedAt=Date.now();
+      await window.JZXCloud.saveSettings(data);
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+      status('Published to cloud.');
+    }catch(e){
+      console.warn(e);
+      status('Saved on this device — cloud sync failed. Use Publish Changes to retry.');
+    }
+  },900);
+};
 const $=(s,p=document)=>p.querySelector(s), $$=(s,p=document)=>[...p.querySelectorAll(s)];
 const openDb=()=>new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE)};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
 const dbPut=async(k,v)=>{const db=await openDb();return new Promise((res,rej)=>{const r=db.transaction(STORE,'readwrite').objectStore(STORE).put(v,k);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})};
@@ -30,22 +45,39 @@ const syncLocalImagesToCloud=async()=>{
   data.cloudImages=data.cloudImages||{};
   let uploaded=0;
   for(const key of keys){
-    if(data.cloudImages[key])continue;
     const local=await dbGet(key);
     if(!local)continue;
     const file=dataUrlToFile(local,key);
     if(!file)continue;
     status(`Uploading image ${uploaded+1} of ${keys.length}…`);
+    const old=data.cloudImages[key]||'';
     const url=await window.JZXCloud.uploadImage(key,file);
     data.cloudImages[key]=url;
+    if(old&&old!==url){try{await window.JZXCloud.deleteImageByUrl(old)}catch{}}
+    await dbDel(key);
     uploaded++;
   }
-  if(uploaded)localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+  if(uploaded){
+    data.__meta=data.__meta||{};
+    data.__meta.localUpdatedAt=Date.now();
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+  }
   return uploaded;
 };
 const getPath=(o,p)=>p.split('.').reduce((x,k)=>x?.[k],o);
 const setPath=(o,p,v)=>{const ks=p.split('.');let x=o;ks.slice(0,-1).forEach(k=>x=x[k]??=(/^\d+$/.test(ks[ks.indexOf(k)+1]||'')?[]:{}));x[ks.at(-1)]=v};
-const save=()=>{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));const st=$('#saveStatus');if(st){st.textContent=cloudOn()?'Saved locally — publishing…':'Saved — refresh the website to see changes.';st.classList.add('save-flash');setTimeout(()=>st.classList.remove('save-flash'),800)}queueCloudSave()};
+const save=()=>{
+  data.__meta=data.__meta||{};
+  data.__meta.localUpdatedAt=Date.now();
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+  const st=$('#saveStatus');
+  if(st){
+    st.textContent=cloudOn()?'Saved on this device — syncing to cloud…':'Saved on this device — refresh the website to see changes.';
+    st.classList.add('save-flash');
+    setTimeout(()=>st.classList.remove('save-flash'),800);
+  }
+  queueCloudSave();
+};
 const fileToData=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(f)});
 const showAdmin=async()=>{$('#loginView').classList.add('hidden');$('#adminView').classList.remove('hidden');sessionStorage.setItem(SESSION_KEY,'1');if(cloudOn()){try{const remote=await window.JZXCloud.loadSettings();if(remote){data=deepMerge(defaults,remote);localStorage.setItem(STORAGE_KEY,JSON.stringify(data));status('Loaded from cloud.')}}catch(e){console.warn(e)}}if(!rendered){render();rendered=true}};
 const logout=async()=>{sessionStorage.removeItem(SESSION_KEY);try{if(cloudOn())await window.JZXCloud.signOut()}catch{}location.reload()};
@@ -223,12 +255,48 @@ function bindThemePreset(){
   });
   $$('[data-path^="theme."]').filter(el=>el!==sel).forEach(el=>el.addEventListener('input',()=>{if(sel.value!=='custom'){sel.value='custom';setPath(data,'theme.preset','custom')}}));
 }
-const getAsset=async(key,fallback)=>data.cloudImages?.[key] || await dbGet(key) || fallback || '';
-const putAsset=async(key,file)=>{
-  if(cloudOn()){const old=data.cloudImages?.[key]||'';const url=await window.JZXCloud.uploadImage(key,file);data.cloudImages=data.cloudImages||{};data.cloudImages[key]=url;if(old&&old!==url)window.JZXCloud.deleteImageByUrl(old);save();return url;}
-  const src=await fileToData(file);await dbPut(key,src);return src;
+const getAsset=async(key,fallback)=>{
+  const local=await dbGet(key);
+  return local || data.cloudImages?.[key] || fallback || '';
 };
-const removeAsset=async(key)=>{if(data.cloudImages?.[key]){const old=data.cloudImages[key];delete data.cloudImages[key];try{await window.JZXCloud.deleteImageByUrl(old)}catch{}save();}await dbDel(key)};
+const putAsset=async(key,file)=>{
+  // Always save a local staging copy first so the admin preview works immediately.
+  const localSrc=await fileToData(file);
+  await dbPut(key,localSrc);
+  data.__meta=data.__meta||{};
+  data.__meta.localUpdatedAt=Date.now();
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+
+  if(cloudOn()){
+    try{
+      const old=data.cloudImages?.[key]||'';
+      const url=await window.JZXCloud.uploadImage(key,file);
+      data.cloudImages=data.cloudImages||{};
+      data.cloudImages[key]=url;
+      data.__meta.publishedAt=Date.now();
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+      await dbDel(key); // cloud copy is now authoritative
+      if(old&&old!==url) window.JZXCloud.deleteImageByUrl(old);
+      try{await window.JZXCloud.saveSettings(data)}catch(e){console.warn('Image uploaded but settings save is pending',e)}
+      status('Image uploaded and synchronized.');
+      return url;
+    }catch(e){
+      console.warn('Firebase Storage upload failed; keeping local staged image.',e);
+      status('Image changed on this device. Firebase Storage sync is not ready; Publish Changes will retry.');
+      return localSrc;
+    }
+  }
+  return localSrc;
+};
+const removeAsset=async(key)=>{
+  await dbDel(key);
+  if(data.cloudImages?.[key]){
+    const old=data.cloudImages[key];
+    delete data.cloudImages[key];
+    try{await window.JZXCloud.deleteImageByUrl(old)}catch{}
+  }
+  save();
+};
 async function previewFor(key,img,fallback){img.src=await getAsset(key,fallback);}
 function makeImageEditor(key,title,fallback){const w=document.createElement('div');w.className='image-editor';w.dataset.imageKey=key;w.innerHTML=`<h3>${title}</h3><img alt="${title}"><input type="file" accept="image/*"><button type="button" class="btn remove-image">Use Original</button>`;const img=$('img',w),file=$('input',w),rm=$('button',w);previewFor(key,img,fallback);file.addEventListener('change',async()=>{if(!file.files[0])return;const src=await putAsset(key,file.files[0]);img.src=src;$('#saveStatus').textContent='Image saved — refresh the website to see changes.'});rm.addEventListener('click',async()=>{await removeAsset(key);img.src=fallback||''});return w}
 function bindStaticImageEditors(){$$('.image-editor[data-image-key]').forEach(w=>{const key=w.dataset.imageKey, fallback=getPath(data,'images.'+key), img=$('img',w), file=$('input[type=file]',w), rm=$('.remove-image',w);previewFor(key,img,fallback);file.addEventListener('change',async()=>{if(!file.files[0])return;const src=await putAsset(key,file.files[0]);img.src=src});rm.addEventListener('click',async()=>{await removeAsset(key);img.src=fallback||''})})}
@@ -289,8 +357,12 @@ const publishNow=async()=>{
     status('Checking images before publish…');
     const count=await syncLocalImagesToCloud();
     status(count?`Uploaded ${count} image(s). Publishing settings…`:'Publishing to cloud…');
+    data.__meta=data.__meta||{};
+    data.__meta.publishedAt=Date.now();
+    data.__meta.localUpdatedAt=data.__meta.localUpdatedAt||data.__meta.publishedAt;
     await window.JZXCloud.saveSettings(data);
-    status('Published to cloud — desktop and mobile will use the same images and settings.');
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+    status('Published to cloud — desktop and mobile will use the same settings.');
   }catch(e){
     console.error(e);
     alert((e?.message||'Cloud publish failed.')+' If this happened while uploading an image, verify Firebase Storage is enabled and its rules are published.');

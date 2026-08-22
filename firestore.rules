@@ -4,7 +4,7 @@ service cloud.firestore {
     function isAdmin() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email == "YOUR_ADMIN_EMAIL@gmail.com";
+        && request.auth.token.email == "jvaremodeling1599@gmail.com";
     }
 
     match /sites/jmx-public {

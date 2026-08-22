@@ -22,7 +22,19 @@
       if (window.JZXCloud?.enabled?.()) {
         window.JZXCloud.init();
         const remote = await window.JZXCloud.loadSettings();
-        if (remote) { merged = deepMerge(window.JZX_DEFAULTS || {}, remote); localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); }
+        if (remote) {
+          const localEdited = Number(local?.__meta?.localUpdatedAt || 0);
+          const remotePublished = Number(remote?.__meta?.publishedAt || 0);
+          // If this browser has a newer unsynced admin edit, keep it locally.
+          // Otherwise the cloud copy is authoritative (important for phones/other devices).
+          if (localEdited > remotePublished) {
+            merged = deepMerge(window.JZX_DEFAULTS || {}, remote);
+            merged = deepMerge(merged, local);
+          } else {
+            merged = deepMerge(window.JZX_DEFAULTS || {}, remote);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+          }
+        }
       }
     } catch (err) { console.warn('Cloud settings unavailable; using local/default settings.', err); }
     return merged;
@@ -35,15 +47,15 @@
     req.onerror = () => reject(req.error);
   });
   const getImage = async key => {
-    const cloud = settings?.cloudImages?.[key];
-    if (cloud) return cloud;
     try {
       const db = await openDb();
-      return await new Promise((resolve,reject)=>{
+      const local = await new Promise((resolve,reject)=>{
         const r=db.transaction(STORE_NAME,'readonly').objectStore(STORE_NAME).get(key);
         r.onsuccess=()=>resolve(r.result || null); r.onerror=()=>reject(r.error);
       });
-    } catch { return null; }
+      if(local) return local;
+    } catch {}
+    return settings?.cloudImages?.[key] || null;
   };
   const setText = (id, value, html=false) => { const el=document.getElementById(id); if(el && value!=null) html ? el.innerHTML=value : el.textContent=value; };
   const setHref = (id, href) => { const el=document.getElementById(id); if(el) el.href=href || '#'; };
