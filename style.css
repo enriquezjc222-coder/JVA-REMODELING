@@ -2414,3 +2414,17 @@ html.theme-managed.theme-glow-off .payment-link::before{animation:none!important
 #home.hero-no-right{grid-template-columns:1fr!important}
 #home.hero-no-right .hero-left{width:100%!important}
 .hero-left.hero-image-off::before{background-image:none!important}
+
+/* JVA mobile quick-contact cleanup:
+   Keep each icon/title/link action intact, but hide the contact-detail
+   line under Phone, WhatsApp, Gmail and Facebook on mobile screens.
+   Service Area remains unchanged. */
+@media (max-width: 768px) {
+    #quickPhone > p,
+    #quickWhatsapp > p,
+    #quickEmail > p,
+    #quickFacebook > p {
+        display: none !important;
+    }
+}
+

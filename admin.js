@@ -14,6 +14,35 @@ const openDb=()=>new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,1);r.onu
 const dbPut=async(k,v)=>{const db=await openDb();return new Promise((res,rej)=>{const r=db.transaction(STORE,'readwrite').objectStore(STORE).put(v,k);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})};
 const dbGet=async k=>{const db=await openDb();return new Promise((res,rej)=>{const r=db.transaction(STORE,'readonly').objectStore(STORE).get(k);r.onsuccess=()=>res(r.result||null);r.onerror=()=>rej(r.error)})};
 const dbDel=async k=>{const db=await openDb();return new Promise((res,rej)=>{const r=db.transaction(STORE,'readwrite').objectStore(STORE).delete(k);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})};
+const dbKeys=async()=>{const db=await openDb();return new Promise((res,rej)=>{const store=db.transaction(STORE,'readonly').objectStore(STORE);const r=store.getAllKeys();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error)})};
+const dataUrlToFile=(dataUrl,key)=>{
+  const m=String(dataUrl||'').match(/^data:([^;]+);base64,(.+)$/);
+  if(!m)return null;
+  const mime=m[1]||'image/jpeg', bin=atob(m[2]), bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  const ext=(mime.split('/')[1]||'jpg').replace('jpeg','jpg').replace(/[^a-z0-9]/gi,'')||'jpg';
+  return new File([bytes],`${key}.${ext}`,{type:mime});
+};
+const syncLocalImagesToCloud=async()=>{
+  if(!cloudOn())return 0;
+  const keys=await dbKeys();
+  if(!keys.length)return 0;
+  data.cloudImages=data.cloudImages||{};
+  let uploaded=0;
+  for(const key of keys){
+    if(data.cloudImages[key])continue;
+    const local=await dbGet(key);
+    if(!local)continue;
+    const file=dataUrlToFile(local,key);
+    if(!file)continue;
+    status(`Uploading image ${uploaded+1} of ${keys.length}…`);
+    const url=await window.JZXCloud.uploadImage(key,file);
+    data.cloudImages[key]=url;
+    uploaded++;
+  }
+  if(uploaded)localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+  return uploaded;
+};
 const getPath=(o,p)=>p.split('.').reduce((x,k)=>x?.[k],o);
 const setPath=(o,p,v)=>{const ks=p.split('.');let x=o;ks.slice(0,-1).forEach(k=>x=x[k]??=(/^\d+$/.test(ks[ks.indexOf(k)+1]||'')?[]:{}));x[ks.at(-1)]=v};
 const save=()=>{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));const st=$('#saveStatus');if(st){st.textContent=cloudOn()?'Saved locally — publishing…':'Saved — refresh the website to see changes.';st.classList.add('save-flash');setTimeout(()=>st.classList.remove('save-flash'),800)}queueCloudSave()};
@@ -255,7 +284,18 @@ const publishNow=async()=>{
     if(!c?.firebase?.enabled || !c?.firebase?.config?.apiKey) return alert('Firebase configuration did not load. Refresh this page once and try again.');
     if(!window.firebase) return alert('Firebase SDK did not load. Check your internet connection, then refresh this page.');
     return alert('Firebase could not initialize. Refresh this page and try again.');
-  }try{status('Publishing to cloud…');await window.JZXCloud.saveSettings(data);status('Published to cloud — public visitors will receive these settings.')}catch(e){alert(e.message||'Cloud publish failed.')}};
+  }
+  try{
+    status('Checking images before publish…');
+    const count=await syncLocalImagesToCloud();
+    status(count?`Uploaded ${count} image(s). Publishing settings…`:'Publishing to cloud…');
+    await window.JZXCloud.saveSettings(data);
+    status('Published to cloud — desktop and mobile will use the same images and settings.');
+  }catch(e){
+    console.error(e);
+    alert((e?.message||'Cloud publish failed.')+' If this happened while uploading an image, verify Firebase Storage is enabled and its rules are published.');
+  }
+};
 $('#publishBtn')?.addEventListener('click',publishNow);$('#publishCloudBtn')?.addEventListener('click',publishNow);
 $('#syncCloudBtn')?.addEventListener('click',async()=>{if(!cloudOn())return alert('Firebase is not configured yet.');try{const remote=await window.JZXCloud.loadSettings();if(remote){data=deepMerge(defaults,remote);localStorage.setItem(STORAGE_KEY,JSON.stringify(data));location.reload()}else alert('No published settings document exists yet.')}catch(e){alert(e.message||'Could not load cloud settings.')}});
 
