@@ -40,28 +40,9 @@
     return merged;
   };
 
-  const openDb = () => new Promise((resolve,reject) => {
-    const req = indexedDB.open(DB_NAME,1);
-    req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains(STORE_NAME)) req.result.createObjectStore(STORE_NAME); };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-  const getImage = async key => {
-    const cloud=settings?.cloudImages?.[key];
-    if(cloud) return cloud;
-
-    // Local IndexedDB is only a fallback for offline/local development.
-    try {
-      const db = await openDb();
-      return await new Promise((resolve,reject)=>{
-        const r=db.transaction(STORE_NAME,'readonly').objectStore(STORE_NAME).get(key);
-        r.onsuccess=()=>resolve(r.result || null);
-        r.onerror=()=>reject(r.error);
-      });
-    } catch {
-      return null;
-    }
-  };
+  // Images are deployed with the site from the /images folder.
+  // Firebase is used only for settings/text/visibility, not binary image storage.
+  const getImage = async key => null;
   const setText = (id, value, html=false) => { const el=document.getElementById(id); if(el && value!=null) html ? el.innerHTML=value : el.textContent=value; };
   const setHref = (id, href) => { const el=document.getElementById(id); if(el) el.href=href || '#'; };
   const setImg = async (selector, key, fallback) => {

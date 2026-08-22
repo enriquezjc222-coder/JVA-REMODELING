@@ -2436,3 +2436,27 @@ html.theme-managed.theme-glow-off .payment-link::before{animation:none!important
     display: flex !important;
 }
 
+/* Admin image previews: images are managed from the project /images folder, not Firebase Storage */
+.image-preview-only,
+.image-editor {
+  position: relative;
+}
+.image-editor .image-folder-note {
+  margin-top: 10px;
+  opacity: .8;
+}
+.image-editor input[type="file"],
+.image-editor .remove-image {
+  display: none !important;
+}
+.image-editor img,
+.repeat-card > img {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  object-fit: contain;
+  background: #090909;
+  border-radius: 10px;
+}
+

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JMX Remodeling Admin</title>
-  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="admin.css?v=20260822-no-storage-images">
 </head>
 <body>
   <div id="loginView" class="login-shell">
@@ -68,9 +68,9 @@
         <h2>Hero & Logos</h2>
         <div class="form-grid"><label>Small heading<input data-path="hero.small"></label><label>Button text<input data-path="hero.cta"></label><label class="full">Hero heading (HTML allowed)<textarea rows="3" data-path="hero.messageHtml"></textarea></label><label class="full">Description<textarea rows="3" data-path="hero.description"></textarea></label></div>
         <div class="image-grid">
-          <div class="image-editor" data-image-key="headerLogo"><h3>Header Logo</h3><img><input type="file" accept="image/*"><button class="btn remove-image">Use Original</button></div>
-          <div class="image-editor" data-image-key="heroBackground"><h3>Left Hero Image</h3><img><input type="file" accept="image/*"><button class="btn remove-image">Use Original</button><p class="small">The website keeps the same dark/faded effect automatically.</p></div>
-          <div class="image-editor" data-image-key="mainLogo"><h3>Right Main Logo</h3><img><input type="file" accept="image/*"><button class="btn remove-image">Use Original</button></div>
+          <div class="image-editor" data-image-key="headerLogo"><h3>Header Logo</h3><img><p class="small image-folder-note">Managed from the <code>images</code> folder in the project.</p></div>
+          <div class="image-editor" data-image-key="heroBackground"><h3>Left Hero Image</h3><img><p class="small image-folder-note">Managed from the <code>images</code> folder in the project.</p><p class="small">The website keeps the same dark/faded effect automatically.</p></div>
+          <div class="image-editor" data-image-key="mainLogo"><h3>Right Main Logo</h3><img><p class="small image-folder-note">Managed from the <code>images</code> folder in the project.</p></div>
         </div>
       </section>
 
@@ -124,7 +124,7 @@
             <label>Dark overlay opacity (0–100)<input type="number" min="0" max="100" step="5" data-path="theme.backgroundOverlay"></label>
           </div>
           <div class="image-grid theme-image-grid">
-            <div class="image-editor" data-image-key="siteBackground"><h3>Full Website Background Image</h3><img alt="Website background preview"><input type="file" accept="image/*"><button class="btn remove-image" type="button">Remove Custom Background</button><p class="small">The image is shown behind the public website with a dark overlay so text remains readable.</p></div>
+            <div class="image-editor" data-image-key="siteBackground"><h3>Full Website Background Image</h3><img alt="Website background preview"><p class="small image-folder-note">Managed from the <code>images</code> folder in the project.</p><p class="small">The image is shown behind the public website with a dark overlay so text remains readable.</p></div>
           </div>
         </div>
       </section>
@@ -251,6 +251,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
   <script src="cloud-core.js?v=20260822-device-sync-preview-final"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="admin.js?v=20260822-device-sync-preview-final"></script>
+  <script src="admin.js?v=20260822-no-storage-images"></script>
 </body>
 </html>
