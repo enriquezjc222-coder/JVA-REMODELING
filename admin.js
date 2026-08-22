@@ -79,7 +79,42 @@ const save=()=>{
   queueCloudSave();
 };
 const fileToData=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(f)});
-const showAdmin=async()=>{$('#loginView').classList.add('hidden');$('#adminView').classList.remove('hidden');sessionStorage.setItem(SESSION_KEY,'1');if(cloudOn()){try{const remote=await window.JZXCloud.loadSettings();if(remote){data=deepMerge(defaults,remote);localStorage.setItem(STORAGE_KEY,JSON.stringify(data));status('Loaded from cloud.')}}catch(e){console.warn(e)}}if(!rendered){render();rendered=true}};
+let adminCloudLoaded=false;
+const showAdmin=async()=>{
+  $('#loginView').classList.add('hidden');
+  $('#adminView').classList.remove('hidden');
+  sessionStorage.setItem(SESSION_KEY,'1');
+
+  if(cloudOn() && !adminCloudLoaded){
+    adminCloudLoaded=true;
+    try{
+      const remote=await window.JZXCloud.loadSettings();
+      if(remote){
+        let local={};
+        try{local=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{}
+        const localEdited=Number(local?.__meta?.localUpdatedAt||0);
+        const remotePublished=Number(remote?.__meta?.publishedAt||0);
+
+        // In the ADMIN only, preserve a newer unpublished edit from this device.
+        data=deepMerge(defaults,remote);
+        if(localEdited>remotePublished) data=deepMerge(data,local);
+
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+        status(localEdited>remotePublished
+          ? 'Loaded cloud settings; newer edits on this device are still pending publication.'
+          : 'Loaded latest settings from cloud.');
+      }
+    }catch(e){
+      console.warn(e);
+      status('Cloud settings could not be loaded; using this device copy.');
+    }
+  }
+
+  if(!rendered){
+    render();
+    rendered=true;
+  }
+};
 const logout=async()=>{sessionStorage.removeItem(SESSION_KEY);try{if(cloudOn())await window.JZXCloud.signOut()}catch{}location.reload()};
 
 function initLogin(){
@@ -260,32 +295,16 @@ const getAsset=async(key,fallback)=>{
   return local || data.cloudImages?.[key] || fallback || '';
 };
 const putAsset=async(key,file)=>{
-  // Always save a local staging copy first so the admin preview works immediately.
+  // Stage locally first. This makes the selected image visible immediately
+  // on both desktop and mobile admin before the user presses Publish Changes.
   const localSrc=await fileToData(file);
   await dbPut(key,localSrc);
+
   data.__meta=data.__meta||{};
   data.__meta.localUpdatedAt=Date.now();
   localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
 
-  if(cloudOn()){
-    try{
-      const old=data.cloudImages?.[key]||'';
-      const url=await window.JZXCloud.uploadImage(key,file);
-      data.cloudImages=data.cloudImages||{};
-      data.cloudImages[key]=url;
-      data.__meta.publishedAt=Date.now();
-      localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
-      await dbDel(key); // cloud copy is now authoritative
-      if(old&&old!==url) window.JZXCloud.deleteImageByUrl(old);
-      try{await window.JZXCloud.saveSettings(data)}catch(e){console.warn('Image uploaded but settings save is pending',e)}
-      status('Image uploaded and synchronized.');
-      return url;
-    }catch(e){
-      console.warn('Firebase Storage upload failed; keeping local staged image.',e);
-      status('Image changed on this device. Firebase Storage sync is not ready; Publish Changes will retry.');
-      return localSrc;
-    }
-  }
+  status('Image selected — preview updated. Press Publish Changes to publish it.');
   return localSrc;
 };
 const removeAsset=async(key)=>{
@@ -298,16 +317,27 @@ const removeAsset=async(key)=>{
   save();
 };
 async function previewFor(key,img,fallback){img.src=await getAsset(key,fallback);}
-function makeImageEditor(key,title,fallback){const w=document.createElement('div');w.className='image-editor';w.dataset.imageKey=key;w.innerHTML=`<h3>${title}</h3><img alt="${title}"><input type="file" accept="image/*"><button type="button" class="btn remove-image">Use Original</button>`;const img=$('img',w),file=$('input',w),rm=$('button',w);previewFor(key,img,fallback);file.addEventListener('change',async()=>{if(!file.files[0])return;const src=await putAsset(key,file.files[0]);img.src=src;$('#saveStatus').textContent='Image saved — refresh the website to see changes.'});rm.addEventListener('click',async()=>{await removeAsset(key);img.src=fallback||''});return w}
-function bindStaticImageEditors(){$$('.image-editor[data-image-key]').forEach(w=>{const key=w.dataset.imageKey, fallback=getPath(data,'images.'+key), img=$('img',w), file=$('input[type=file]',w), rm=$('.remove-image',w);previewFor(key,img,fallback);file.addEventListener('change',async()=>{if(!file.files[0])return;const src=await putAsset(key,file.files[0]);img.src=src});rm.addEventListener('click',async()=>{await removeAsset(key);img.src=fallback||''})})}
-function renderServices(){const host=$('#servicesEditor');host.innerHTML='';(data.services||[]).forEach((s,i)=>{const c=document.createElement('div');c.className='repeat-card';c.innerHTML=`<h3>Service ${i+1}</h3><img><label>Title<input value="${(s.title||'').replace(/"/g,'&quot;')}"></label><label>Description<textarea rows="3">${s.description||''}</textarea></label><input type="file" accept="image/*"><button class="btn remove-image" type="button">Use Original Image</button>`;const [title,desc]=c.querySelectorAll('input:not([type=file]),textarea'),img=$('img',c),file=$('input[type=file]',c),rm=$('.remove-image',c);previewFor(`service-${i}`,img,s.image);title.addEventListener('change',()=>{data.services[i].title=title.value;save()});desc.addEventListener('change',()=>{data.services[i].description=desc.value;save()});file.addEventListener('change',async()=>{if(!file.files[0])return;const src=await putAsset(`service-${i}`,file.files[0]);img.src=src});rm.addEventListener('click',async()=>{await removeAsset(`service-${i}`);img.src=s.image});addItemVisibilityControls(c,'services',i,[['title','Title'],['description','Text'],['image','Image']]);host.appendChild(c)})}
+function makeImageEditor(key,title,fallback){const w=document.createElement('div');w.className='image-editor';w.dataset.imageKey=key;w.innerHTML=`<h3>${title}</h3><img alt="${title}"><input type="file" accept="image/*"><button type="button" class="btn remove-image">Use Original</button>`;const img=$('img',w),file=$('input',w),rm=$('button',w);previewFor(key,img,fallback);file.addEventListener('change',async()=>{
+  if(!file.files[0])return;
+  const src=await putAsset(key,file.files[0]);
+  img.src=src;
+  img.style.display='block';
+  $('#saveStatus').textContent='Image selected — press Publish Changes to publish it.';
+});rm.addEventListener('click',async()=>{await removeAsset(key);img.src=fallback||''});return w}
+function bindStaticImageEditors(){$$('.image-editor[data-image-key]').forEach(w=>{const key=w.dataset.imageKey, fallback=getPath(data,'images.'+key), img=$('img',w), file=$('input[type=file]',w), rm=$('.remove-image',w);previewFor(key,img,fallback);file.addEventListener('change',async()=>{
+  if(!file.files[0])return;
+  const src=await putAsset(key,file.files[0]);
+  img.src=src;
+  img.style.display='block';
+});rm.addEventListener('click',async()=>{await removeAsset(key);img.src=fallback||''})})}
+function renderServices(){const host=$('#servicesEditor');host.innerHTML='';(data.services||[]).forEach((s,i)=>{const c=document.createElement('div');c.className='repeat-card';c.innerHTML=`<h3>Service ${i+1}</h3><img><label>Title<input value="${(s.title||'').replace(/"/g,'&quot;')}"></label><label>Description<textarea rows="3">${s.description||''}</textarea></label><input type="file" accept="image/*"><button class="btn remove-image" type="button">Use Original Image</button>`;const [title,desc]=c.querySelectorAll('input:not([type=file]),textarea'),img=$('img',c),file=$('input[type=file]',c),rm=$('.remove-image',c);previewFor(`service-${i}`,img,s.image);title.addEventListener('change',()=>{data.services[i].title=title.value;save()});desc.addEventListener('change',()=>{data.services[i].description=desc.value;save()});file.addEventListener('change',async()=>{if(!file.files[0])return;const src=await putAsset(`service-${i}`,file.files[0]);img.src=src;img.style.display='block'});rm.addEventListener('click',async()=>{await removeAsset(`service-${i}`);img.src=s.image});addItemVisibilityControls(c,'services',i,[['title','Title'],['description','Text'],['image','Image']]);host.appendChild(c)})}
 function renderProjects(){const host=$('#projectsEditor');host.innerHTML='';['before1','after1','before2','after2','before3','after3','before4','after4'].forEach(k=>{const ed=makeImageEditor(`project-${k}`,k.toUpperCase(),data.projects?.[k]);const row=document.createElement('div');row.className='item-visibility-controls';row.appendChild(makeVisibilitySwitch(itemVisible('projects',k),on=>setItemVisible('projects',k,on),'Show image'));ed.insertBefore(row,ed.querySelector('img'));host.appendChild(ed)})}
 function renderTextPairs(hostId,items,pathPrefix,labels){const host=$(hostId);if(!host)return;host.innerHTML='';(items||[]).forEach((d,i)=>{const c=document.createElement('div');c.className='repeat-card';c.innerHTML=`<h3>${labels.card} ${i+1}</h3><label>${labels.a}<input></label><label>${labels.b}<textarea rows="3"></textarea></label>`;const input=$('input',c),ta=$('textarea',c);input.value=d[labels.ak]||'';ta.value=d[labels.bk]||'';input.addEventListener('change',()=>{getPath(data,pathPrefix)[i][labels.ak]=input.value;save()});ta.addEventListener('change',()=>{getPath(data,pathPrefix)[i][labels.bk]=ta.value;save()});const group=pathPrefix.split('.')[0];addItemVisibilityControls(c,group,i,[[labels.ak,labels.a],[labels.bk,labels.b]]);host.appendChild(c)})}
 function renderTrust(){renderTextPairs('#trustEditor',data.trust?.items,'trust.items',{card:'Reason',a:'Title',b:'Description',ak:'title',bk:'text'})}
 function renderProcess(){renderTextPairs('#processEditor',data.process?.steps,'process.steps',{card:'Step',a:'Title',b:'Description',ak:'title',bk:'text'})}
 function renderTestimonials(){const host=$('#testimonialsEditor');if(!host)return;host.innerHTML='';(data.testimonials?.items||[]).forEach((d,i)=>{const c=document.createElement('div');c.className='repeat-card';c.innerHTML=`<h3>Testimonial ${i+1}</h3><label>Customer name<input></label><label>Project / service<input></label><label>Review<textarea rows="4"></textarea></label>`;const ins=c.querySelectorAll('input'),ta=$('textarea',c);ins[0].value=d.name||'';ins[1].value=d.project||'';ta.value=d.quote||'';ins[0].addEventListener('change',()=>{data.testimonials.items[i].name=ins[0].value;save()});ins[1].addEventListener('change',()=>{data.testimonials.items[i].project=ins[1].value;save()});ta.addEventListener('change',()=>{data.testimonials.items[i].quote=ta.value;save()});addItemVisibilityControls(c,'testimonials',i,[['name','Name'],['project','Project'],['quote','Review']]);host.appendChild(c)})}
 function renderFaq(){renderTextPairs('#faqEditor',data.faq?.items,'faq.items',{card:'FAQ',a:'Question',b:'Answer',ak:'question',bk:'answer'})}
-function renderCatalogue(){const host=$('#catalogueEditor');host.innerHTML='';(data.catalogue||[]).forEach((d,i)=>{const c=document.createElement('div');c.className='repeat-card';c.innerHTML=`<h3>Slot ${i+1}${i<3?' — visible':''}</h3><img><label>Title<input value="${(d.title||'').replace(/"/g,'&quot;')}"></label><input type="file" accept="image/*"><button class="btn remove-image" type="button">Use Original Image</button>`;const img=$('img',c),title=$('input:not([type=file])',c),file=$('input[type=file]',c),rm=$('.remove-image',c);previewFor(`catalogue-${i}`,img,d.image);title.addEventListener('change',()=>{data.catalogue[i].title=title.value;save()});file.addEventListener('change',async()=>{if(!file.files[0])return;const src=await putAsset(`catalogue-${i}`,file.files[0]);img.src=src});rm.addEventListener('click',async()=>{await removeAsset(`catalogue-${i}`);img.src=d.image||''});addItemVisibilityControls(c,'catalogue',i,[['title','Title'],['image','Image']]);host.appendChild(c)})}
+function renderCatalogue(){const host=$('#catalogueEditor');host.innerHTML='';(data.catalogue||[]).forEach((d,i)=>{const c=document.createElement('div');c.className='repeat-card';c.innerHTML=`<h3>Slot ${i+1}${i<3?' — visible':''}</h3><img><label>Title<input value="${(d.title||'').replace(/"/g,'&quot;')}"></label><input type="file" accept="image/*"><button class="btn remove-image" type="button">Use Original Image</button>`;const img=$('img',c),title=$('input:not([type=file])',c),file=$('input[type=file]',c),rm=$('.remove-image',c);previewFor(`catalogue-${i}`,img,d.image);title.addEventListener('change',()=>{data.catalogue[i].title=title.value;save()});file.addEventListener('change',async()=>{if(!file.files[0])return;const src=await putAsset(`catalogue-${i}`,file.files[0]);img.src=src;img.style.display='block'});rm.addEventListener('click',async()=>{await removeAsset(`catalogue-${i}`);img.src=d.image||''});addItemVisibilityControls(c,'catalogue',i,[['title','Title'],['image','Image']]);host.appendChild(c)})}
 const localTrafficMonthKey=()=>{
   try{
     const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit'}).formatToParts(new Date());

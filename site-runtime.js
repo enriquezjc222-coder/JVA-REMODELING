@@ -17,26 +17,26 @@
   const loadSettings = async () => {
     let local = {};
     try { local = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch {}
+
+    // Local data is only a fallback if Firebase is unavailable.
     let merged = deepMerge(window.JZX_DEFAULTS || {}, local);
+
     try {
       if (window.JZXCloud?.enabled?.()) {
         window.JZXCloud.init();
         const remote = await window.JZXCloud.loadSettings();
+
+        // On the PUBLIC website the cloud copy is authoritative on EVERY device.
+        // This prevents an old laptop localStorage copy from overriding changes
+        // that were published from the phone (and vice versa).
         if (remote) {
-          const localEdited = Number(local?.__meta?.localUpdatedAt || 0);
-          const remotePublished = Number(remote?.__meta?.publishedAt || 0);
-          // If this browser has a newer unsynced admin edit, keep it locally.
-          // Otherwise the cloud copy is authoritative (important for phones/other devices).
-          if (localEdited > remotePublished) {
-            merged = deepMerge(window.JZX_DEFAULTS || {}, remote);
-            merged = deepMerge(merged, local);
-          } else {
-            merged = deepMerge(window.JZX_DEFAULTS || {}, remote);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-          }
+          merged = deepMerge(window.JZX_DEFAULTS || {}, remote);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
         }
       }
-    } catch (err) { console.warn('Cloud settings unavailable; using local/default settings.', err); }
+    } catch (err) {
+      console.warn('Cloud settings unavailable; using local/default settings.', err);
+    }
     return merged;
   };
 
@@ -47,15 +47,20 @@
     req.onerror = () => reject(req.error);
   });
   const getImage = async key => {
+    const cloud=settings?.cloudImages?.[key];
+    if(cloud) return cloud;
+
+    // Local IndexedDB is only a fallback for offline/local development.
     try {
       const db = await openDb();
-      const local = await new Promise((resolve,reject)=>{
+      return await new Promise((resolve,reject)=>{
         const r=db.transaction(STORE_NAME,'readonly').objectStore(STORE_NAME).get(key);
-        r.onsuccess=()=>resolve(r.result || null); r.onerror=()=>reject(r.error);
+        r.onsuccess=()=>resolve(r.result || null);
+        r.onerror=()=>reject(r.error);
       });
-      if(local) return local;
-    } catch {}
-    return settings?.cloudImages?.[key] || null;
+    } catch {
+      return null;
+    }
   };
   const setText = (id, value, html=false) => { const el=document.getElementById(id); if(el && value!=null) html ? el.innerHTML=value : el.textContent=value; };
   const setHref = (id, href) => { const el=document.getElementById(id); if(el) el.href=href || '#'; };
