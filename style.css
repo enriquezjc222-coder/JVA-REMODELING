@@ -2428,3 +2428,11 @@ html.theme-managed.theme-glow-off .payment-link::before{animation:none!important
     }
 }
 
+/* Reliable expandable Projects / Catalogue galleries */
+.catalogue-extra.open-extra {
+    display: block !important;
+}
+.project-extra.open-extra {
+    display: flex !important;
+}
+

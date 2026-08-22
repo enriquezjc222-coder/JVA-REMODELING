@@ -18,7 +18,7 @@
     <link id="canonicalLink" rel="canonical" href="">
     <script id="localBusinessSchema" type="application/ld+json">{}</script>
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260822-catalogue-toggle-fix">
 </head>
 
 <body>
@@ -715,35 +715,81 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
 <script src="cloud-core.js?v=20260822-device-sync-preview-final"></script>
-<script src="site-runtime.js?v=20260822-device-sync-preview-final"></script>
+<script src="site-runtime.js?v=20260822-catalogue-toggle-fix"></script>
 <script>
-const moreBtn = document.getElementById("catalogueMoreBtn");
-const extraBoxes = document.querySelectorAll(".catalogue-extra");
+(function () {
+    const catalogueMoreBtn = document.getElementById("catalogueMoreBtn");
+    const catalogueIntroBtn = document.getElementById("catalogueIntroBtn");
+    const projectsMoreBtn = document.getElementById("projectsMoreBtn");
 
-moreBtn.addEventListener("click", function () {
-    const isOpen = moreBtn.classList.toggle("open");
+    const visibleCatalogueExtras = () =>
+        [...document.querySelectorAll(".catalogue-extra")]
+            .filter(el => !el.classList.contains("jzx-hidden"));
 
-    extraBoxes.forEach(function (box) {
-        box.style.display = isOpen ? "block" : "none";
+    const visibleProjectExtras = () =>
+        [...document.querySelectorAll(".project-extra")]
+            .filter(el => !el.classList.contains("jzx-hidden"));
+
+    function setCatalogueOpen(open) {
+        const boxes = visibleCatalogueExtras();
+        boxes.forEach(box => {
+            if (open) {
+                box.style.setProperty("display", "block", "important");
+            } else {
+                box.style.removeProperty("display");
+            }
+        });
+
+        if (catalogueMoreBtn) {
+            catalogueMoreBtn.classList.toggle("open", open);
+            catalogueMoreBtn.textContent = open ? "LESS" : "MORE";
+            catalogueMoreBtn.setAttribute("aria-expanded", String(open));
+        }
+
+        if (catalogueIntroBtn) {
+            catalogueIntroBtn.classList.toggle("open", open);
+            catalogueIntroBtn.textContent = open ? "VIEW LESS CATALOGUE" : "VIEW MORE CATALOGUE";
+            catalogueIntroBtn.setAttribute("aria-expanded", String(open));
+        }
+
+        if (open) {
+            document.getElementById("catalogue")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+    }
+
+    function toggleCatalogue() {
+        const isOpen = catalogueMoreBtn?.classList.contains("open")
+            || catalogueIntroBtn?.classList.contains("open");
+        setCatalogueOpen(!isOpen);
+    }
+
+    function setProjectsOpen(open) {
+        visibleProjectExtras().forEach(project => {
+            if (open) {
+                project.style.setProperty("display", "flex", "important");
+            } else {
+                project.style.removeProperty("display");
+            }
+        });
+
+        if (projectsMoreBtn) {
+            projectsMoreBtn.classList.toggle("open", open);
+            projectsMoreBtn.textContent = open ? "VIEW LESS PROJECTS" : "VIEW MORE PROJECTS";
+            projectsMoreBtn.setAttribute("aria-expanded", String(open));
+        }
+    }
+
+    catalogueIntroBtn?.removeAttribute("onclick");
+    catalogueIntroBtn?.addEventListener("click", toggleCatalogue);
+    catalogueMoreBtn?.addEventListener("click", toggleCatalogue);
+    projectsMoreBtn?.addEventListener("click", () => {
+        setProjectsOpen(!projectsMoreBtn.classList.contains("open"));
     });
 
-    moreBtn.textContent = isOpen ? "LESS" : "MORE";
-});
-
-const projectsMoreBtn = document.getElementById("projectsMoreBtn");
-const extraProjects = document.querySelectorAll(".project-extra");
-
-projectsMoreBtn.addEventListener("click", function () {
-    const isOpen = projectsMoreBtn.classList.toggle("open");
-
-    extraProjects.forEach(function (project) {
-        project.style.display = isOpen ? "flex" : "none";
-    });
-
-    projectsMoreBtn.textContent = isOpen
-        ? "VIEW LESS PROJECTS"
-        : "VIEW MORE PROJECTS";
-});
+    // Safe starting state.
+    setCatalogueOpen(false);
+    setProjectsOpen(false);
+})();
 </script>
 </body>
 
