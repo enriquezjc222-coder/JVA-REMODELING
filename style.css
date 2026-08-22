@@ -2460,3 +2460,152 @@ html.theme-managed.theme-glow-off .payment-link::before{animation:none!important
   border-radius: 10px;
 }
 
+
+
+/* ===== SWAP: CATALOGUE / BEFORE & AFTER INTRO BOXES ===== */
+.catalogue-intro-box {
+    position: relative;
+}
+
+.catalogue-intro-box .catalogue-intro-icon {
+    margin-top: 22px;
+    color: var(--gold-bright);
+    font-size: 42px;
+    line-height: 1;
+    text-shadow: 0 0 12px rgba(255, 215, 0, 0.45);
+}
+
+.projects-intro-box {
+    display: block;
+    align-items: initial;
+}
+
+.projects-intro-box > div {
+    width: 100%;
+}
+
+.projects-intro-box .section-small {
+    margin: 0 0 8px;
+}
+
+.projects-intro-box h2 {
+    margin: 8px 0 12px;
+    font-size: 28px;
+}
+
+.projects-intro-box .small-line {
+    margin-bottom: 17px;
+}
+
+.projects-intro-box p:not(.section-small) {
+    max-width: 430px;
+}
+
+/* =========================================================
+   INTERACTIVE IMAGE CARDS + LARGE IMAGE VIEWER
+   Applies only to image content below the hero.
+   Header logo and both hero images are intentionally excluded.
+   ========================================================= */
+@media (hover: hover) and (pointer: fine) {
+    .service-card,
+    .project-photo,
+    .catalogue-item {
+        transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+        transform-origin: center center;
+        will-change: transform;
+    }
+
+    .service-card:hover,
+    .project-photo:hover,
+    .catalogue-item:hover {
+        transform: translateY(-7px) scale(1.025);
+        box-shadow: 0 16px 34px rgba(0, 0, 0, 0.42), 0 0 18px rgba(255, 215, 0, 0.16);
+        z-index: 20;
+    }
+}
+
+.service-card:has(.service-image img),
+.project-photo:has(img),
+.catalogue-item:has(.catalogue-photo img) {
+    cursor: zoom-in;
+}
+
+.image-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 28px;
+    background: rgba(0, 0, 0, 0.90);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
+.image-lightbox.is-open {
+    display: flex;
+}
+
+.image-lightbox__dialog {
+    position: relative;
+    width: min(94vw, 1500px);
+    height: min(90vh, 1000px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.image-lightbox__image {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 22px 70px rgba(0, 0, 0, 0.72);
+}
+
+.image-lightbox__close {
+    position: absolute;
+    top: -18px;
+    right: -8px;
+    width: 46px;
+    height: 46px;
+    border: 1px solid rgba(255, 215, 0, 0.7);
+    border-radius: 50%;
+    background: #0b0b0b;
+    color: var(--gold-bright, #ffd700);
+    font-size: 30px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.image-lightbox__close:hover,
+.image-lightbox__close:focus-visible {
+    background: var(--gold-bright, #ffd700);
+    color: #080808;
+    outline: none;
+}
+
+body.image-lightbox-open {
+    overflow: hidden;
+}
+
+@media (max-width: 700px) {
+    .image-lightbox {
+        padding: 14px;
+    }
+
+    .image-lightbox__dialog {
+        width: 96vw;
+        height: 88vh;
+    }
+
+    .image-lightbox__close {
+        top: -8px;
+        right: 0;
+    }
+}

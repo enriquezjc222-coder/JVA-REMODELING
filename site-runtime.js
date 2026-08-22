@@ -49,7 +49,18 @@
     const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
     if (!el) return;
     const saved = await getImage(key);
-    el.src = saved || fallback || el.src;
+    const original = el.getAttribute('src') || '';
+    const src = saved || fallback || original;
+    if (!src) return;
+    // Keep a working local fallback. This prevents a stale setting/path from
+    // making an image flash briefly and then disappear after runtime loads.
+    el.onerror = () => {
+      if (original && el.getAttribute('src') !== original) {
+        el.onerror = null;
+        el.src = original;
+      }
+    };
+    el.src = src;
   };
   const hexToRgba=(hex,alpha)=>{
     const h=String(hex||'#080808').replace('#','').trim();
@@ -307,21 +318,33 @@
     const quickF=document.getElementById('quickFacebook'); if(quickF){quickF.href=c.facebook||'#';}
     const quickA=document.getElementById('quickServiceArea'); if(quickA){const q=quickA.querySelector('p'); if(q) q.textContent=c.serviceArea;}
 
+    // Images below the hero are file-managed from /images. Text and visibility
+    // can still come from settings, but image paths always come from the local
+    // defaults so old Firebase/localStorage paths cannot overwrite them.
+    const localDefaults = window.JZX_DEFAULTS || {};
     document.querySelectorAll('[data-service-index]').forEach(async (card) => {
       const i=Number(card.dataset.serviceIndex), d=settings.services?.[i]; if(!d) return;
+      const local=localDefaults.services?.[i] || {};
       const title=card.querySelector('h3'), desc=card.querySelector('p'), img=card.querySelector('.service-image img');
-      if(title) title.innerHTML=d.title; if(desc) desc.textContent=d.description; if(img) await setImg(img,`service-${i}`,d.image);
+      if(title) title.innerHTML=d.title; if(desc) desc.textContent=d.description;
+      if(img) await setImg(img,`service-${i}`,local.image || img.getAttribute('src'));
     });
-    document.querySelectorAll('[data-project-image]').forEach(async img => { const key=img.dataset.projectImage; await setImg(img,`project-${key}`,settings.projects?.[key]); });
+    document.querySelectorAll('[data-project-image]').forEach(async img => {
+      const key=img.dataset.projectImage;
+      await setImg(img,`project-${key}`,localDefaults.projects?.[key] || img.getAttribute('src'));
+    });
     document.querySelectorAll('[data-catalogue-index]').forEach(async card => {
-      const i=Number(card.dataset.catalogueIndex), d=settings.catalogue?.[i]; if(!d) return;
-      const title=card.querySelector('h3'); if(title) title.textContent=d.title || `CATALOGUE ${i+1}`;
+      const i=Number(card.dataset.catalogueIndex), d=settings.catalogue?.[i] || {}, local=localDefaults.catalogue?.[i] || {};
+      const title=card.querySelector('h3'); if(title) title.textContent=d.title || local.title || `CATALOGUE ${i+1}`;
       let photo=card.querySelector('.catalogue-photo'); if(!photo) return;
       let imgEl=photo.querySelector('img');
-      const saved=await getImage(`catalogue-${i}`);
-      const src=saved || d.image;
-      if(src){ if(!imgEl){ imgEl=document.createElement('img'); photo.textContent=''; photo.appendChild(imgEl); } imgEl.src=src; imgEl.alt=d.title || `Catalogue ${i+1}`; }
-      else if(!imgEl){ photo.textContent='PHOTO'; }
+      const src=local.image || imgEl?.getAttribute('src') || '';
+      if(src){
+        if(!imgEl){ imgEl=document.createElement('img'); photo.textContent=''; photo.appendChild(imgEl); }
+        const original=imgEl.getAttribute('src') || src;
+        imgEl.onerror=()=>{ if(original && imgEl.getAttribute('src')!==original){ imgEl.onerror=null; imgEl.src=original; } };
+        imgEl.src=src; imgEl.alt=d.title || local.title || `Catalogue ${i+1}`;
+      } else if(!imgEl){ photo.textContent='PHOTO'; }
     });
 
     const trust=settings.trust||{}; setText('trustEyebrow',trust.eyebrow); setText('trustTitle',trust.title); setText('trustIntro',trust.intro); setText('credentialsTitle',trust.credentialsTitle); setText('credentialsText',trust.credentialsText);

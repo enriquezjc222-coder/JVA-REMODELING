@@ -163,7 +163,7 @@
 
       <section class="panel" data-panel="production">
         <h2>Production & Cloud</h2>
-        <p class="small">This version is ready for Firebase Google Sign-In, Firestore settings sync and Firebase Storage image uploads. Configure the public Firebase web values in <code>admin-config.js</code>; do not put service-account private keys in the website.</p>
+        <p class="small">This version is ready for Firebase Google Sign-In and Firestore settings sync. Website images are managed directly from the <code>images</code> folder. Configure the public Firebase web values in <code>admin-config.js</code>; do not put service-account private keys in the website.</p>
         <div class="status-card">
           <h3>Cloud status</h3>
           <p id="cloudStatus">Checking configuration…</p>
@@ -174,7 +174,7 @@
         </div>
         <div class="repeat-card">
           <h3>What becomes cloud-powered</h3>
-          <p>Admin login with your authorized Google account, all text/theme/SEO/payment settings in Firestore, and uploaded logos/photos/backgrounds in Firebase Storage. Visitors load the published settings automatically.</p>
+          <p>Admin login uses your authorized Google account, while text/theme/SEO/payment/visibility settings sync through Firestore. Logos, photos and backgrounds remain normal files in the project <code>images</code> folder. Visitors load the published settings automatically.</p>
           <p class="small">Use <code>FIREBASE-SETUP.md</code>, <code>firestore.rules</code> and <code>storage.rules</code> included in this ZIP to finish the one-time Firebase setup.</p>
         </div>
       </section>

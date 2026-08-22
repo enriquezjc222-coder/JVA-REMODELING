@@ -107,12 +107,12 @@ window.JZX_DEFAULTS = {
     {
       "title": "KITCHEN<br>REMODELING",
       "description": "Modern designs and functional spaces tailored to your needs.",
-      "image": "images/kitchen-remodeling.jpg"
+      "image": "images/kitchen-remodeling.png"
     },
     {
       "title": "BATHROOM<br>REMODELING",
       "description": "We renovate your bathroom with style and quality.",
-      "image": "images/bathroom.jpg"
+      "image": "images/bathroom.png"
     },
     {
       "title": "CABINETS",
@@ -122,109 +122,109 @@ window.JZX_DEFAULTS = {
     {
       "title": "COUNTERTOPS",
       "description": "Granite, quartz, quartzite and more. Professional fabrication and installation.",
-      "image": "images/countertops.jpg"
+      "image": "images/countertops.png"
     },
     {
       "title": "FLOORING",
       "description": "Laminate, vinyl and more. Professional installation.",
-      "image": "images/flooring.jpg"
+      "image": "images/flooring.png"
     },
     {
       "title": "PAINTING",
       "description": "Interior painting. Professional finishes.",
-      "image": "images/painting.jpg"
+      "image": "images/painting.png"
     }
   ],
   "projects": {
-    "before1": "images/before1.jpg",
-    "before2": "images/before2.jpg",
-    "before3": "images/before3.jpg",
-    "before4": "images/before4.jpg",
-    "after1": "images/after1.jpg",
-    "after2": "images/after2.jpg",
-    "after3": "images/after3.jpg",
-    "after4": "images/after4.jpg"
+    "before1": "images/before1.png",
+    "before2": "images/before2.png",
+    "before3": "images/before3.png",
+    "before4": "images/before4.png",
+    "after1": "images/after1.png",
+    "after2": "images/after2.png",
+    "after3": "images/after3.png",
+    "after4": "images/after4.png"
   },
   "catalogue": [
     {
       "title": "SECURITY CAMERAS 01",
-      "image": ""
+      "image": "images/security-cameras-01.png"
     },
     {
       "title": "SECURITY CAMERAS 02",
-      "image": ""
+      "image": "images/security-cameras-02.jpg"
     },
     {
       "title": "LED RECESSED LIGHTING 01",
-      "image": "./images/led-lighting-01.jpg"
+      "image": "./images/led-lighting-01.png"
     },
     {
       "title": "LED RECESSED LIGHTING 02",
-      "image": "./images/led-lighting-02.jpg"
+      "image": "./images/led-lighting-02.png"
     },
     {
       "title": "LED RECESSED LIGHTING 03",
-      "image": "./images/led-lighting-03.jpg"
+      "image": "./images/led-lighting-03.png"
     },
     {
       "title": "CABINETS & COUNTERTOPS 01",
-      "image": "images/cabinets-countertops-01.jpg"
+      "image": "images/cabinets-countertops-01.png"
     },
     {
       "title": "CABINETS & COUNTERTOPS 02",
-      "image": "images/cabinets-countertops-02.jpg"
+      "image": "images/cabinets-countertops-02.png"
     },
     {
       "title": "CABINETS & COUNTERTOPS 03",
-      "image": "images/cabinets-countertops-03.jpg"
+      "image": "images/cabinets-countertops-03.png"
     },
     {
       "title": "CABINETS & COUNTERTOPS 04",
-      "image": "images/cabinets-countertops-04.jpg"
+      "image": "images/cabinets-countertops-04.png"
     },
     {
       "title": "OUTDOOR KITCHEN 01",
-      "image": "images/outdoor-kitchen-01.jpg"
+      "image": "images/outdoor-kitchen-01.png"
     },
     {
       "title": "OUTDOOR KITCHEN 02",
-      "image": "images/outdoor-kitchen-02.jpg"
+      "image": "images/outdoor-kitchen-02.png"
     },
     {
       "title": "OUTDOOR KITCHEN 03",
-      "image": "images/outdoor-kitchen-03.jpg"
+      "image": "images/outdoor-kitchen-03.png"
     },
     {
       "title": "OUTDOOR KITCHEN 04",
-      "image": "images/outdoor-kitchen-04.jpg"
+      "image": "images/outdoor-kitchen-04.png"
     },
     {
       "title": "MOLDING & TRIM 01",
-      "image": "images/molding-and-trim-01.jpg"
+      "image": "images/molding-and-trim-01.png"
     },
     {
       "title": "MOLDING & TRIM 02",
-      "image": "images/molding-and-trim-02.jpg"
+      "image": "images/molding-and-trim-02.png"
     },
     {
       "title": "MOLDING & TRIM 03",
-      "image": "images/molding-and-trim-03.jpg"
+      "image": "images/molding-and-trim-03.png"
     },
     {
       "title": "BATHROOM REMODEL 01",
-      "image": "images/bathroom-remodel-01.jpg"
+      "image": "images/bathroom-remodel-01.png"
     },
     {
       "title": "BATHROOM REMODEL 02",
-      "image": "images/bathroom-remodel-02.jpg"
+      "image": "images/bathroom-remodel-02.png"
     },
     {
       "title": "BATHROOM REMODEL 03",
-      "image": "images/bathroom-remodel-03.jpg"
+      "image": "images/bathroom-remodel-03.png"
     },
     {
       "title": "BATHROOM REMODEL 04",
-      "image": "images/bathroom-remodel-04.jpg"
+      "image": "images/bathroom-remodel-04.png"
     }
   ],
   "footer": {
