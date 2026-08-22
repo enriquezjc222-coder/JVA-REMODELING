@@ -1,13 +1,16 @@
 (() => {
   'use strict';
-  const cfg = window.JZX_ADMIN_CONFIG || {};
+  const getCfg = () => window.JZX_ADMIN_CONFIG || {};
   let initialized = false, app = null, auth = null, db = null, storage = null;
-  const enabled = () => Boolean(cfg.firebase?.enabled && cfg.firebase?.config?.apiKey && window.firebase);
-  const allowedEmail = () => String(cfg.allowedGoogleEmail || '').trim().toLowerCase();
-  const settingsDoc = () => cfg.firebase?.settingsDoc || 'sites/jmx-public';
-  const assetFolder = () => cfg.firebase?.assetFolder || 'jmx-site-assets';
-  const trafficGlobalDoc = () => cfg.firebase?.trafficGlobalDoc || 'traffic/global';
-  const trafficMonthlyPrefix = () => cfg.firebase?.trafficMonthlyPrefix || 'traffic/monthly_';
+  const enabled = () => {
+    const cfg = getCfg();
+    return Boolean(cfg.firebase?.enabled && cfg.firebase?.config?.apiKey && window.firebase);
+  };
+  const allowedEmail = () => String(getCfg().allowedGoogleEmail || '').trim().toLowerCase();
+  const settingsDoc = () => getCfg().firebase?.settingsDoc || 'sites/jmx-public';
+  const assetFolder = () => getCfg().firebase?.assetFolder || 'jmx-site-assets';
+  const trafficGlobalDoc = () => getCfg().firebase?.trafficGlobalDoc || 'traffic/global';
+  const trafficMonthlyPrefix = () => getCfg().firebase?.trafficMonthlyPrefix || 'traffic/monthly_';
   const chicagoMonthKey = () => {
     try {
       const parts = new Intl.DateTimeFormat('en-US', {timeZone:'America/Chicago', year:'numeric', month:'2-digit'}).formatToParts(new Date());
@@ -21,6 +24,7 @@
     if(initialized) return true;
     if(!enabled()) return false;
     try{
+      const cfg = getCfg();
       app = firebase.apps?.length ? firebase.app() : firebase.initializeApp(cfg.firebase.config);
       auth = firebase.auth(); db = firebase.firestore(); storage = firebase.storage(); initialized = true; return true;
     }catch(err){ console.error('Firebase init failed', err); return false; }

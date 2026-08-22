@@ -249,7 +249,13 @@ $('#refreshTrafficBtn')?.addEventListener('click',loadTrafficCounters);
 
 function render(){bindNav();bindSimpleFields();bindThemePreset();bindStaticImageEditors();renderServices();renderProjects();renderTrust();renderProcess();renderTestimonials();renderFaq();renderCatalogue();bindVisibilityUI();const cs=$('#cloudStatus');if(cs)cs.textContent=cloudOn()?'Firebase configured — sign in and Publish Changes to sync all visitors.':'Local preview mode — configure Firebase in admin-config.js for production cloud sync.';}
 
-const publishNow=async()=>{if(!cloudOn())return alert('Firebase is not configured yet. See FIREBASE-SETUP.md.');try{status('Publishing to cloud…');await window.JZXCloud.saveSettings(data);status('Published to cloud — public visitors will receive these settings.')}catch(e){alert(e.message||'Cloud publish failed.')}};
+const publishNow=async()=>{
+  if(!cloudOn()){
+    const c=window.JZX_ADMIN_CONFIG;
+    if(!c?.firebase?.enabled || !c?.firebase?.config?.apiKey) return alert('Firebase configuration did not load. Refresh this page once and try again.');
+    if(!window.firebase) return alert('Firebase SDK did not load. Check your internet connection, then refresh this page.');
+    return alert('Firebase could not initialize. Refresh this page and try again.');
+  }try{status('Publishing to cloud…');await window.JZXCloud.saveSettings(data);status('Published to cloud — public visitors will receive these settings.')}catch(e){alert(e.message||'Cloud publish failed.')}};
 $('#publishBtn')?.addEventListener('click',publishNow);$('#publishCloudBtn')?.addEventListener('click',publishNow);
 $('#syncCloudBtn')?.addEventListener('click',async()=>{if(!cloudOn())return alert('Firebase is not configured yet.');try{const remote=await window.JZXCloud.loadSettings();if(remote){data=deepMerge(defaults,remote);localStorage.setItem(STORAGE_KEY,JSON.stringify(data));location.reload()}else alert('No published settings document exists yet.')}catch(e){alert(e.message||'Could not load cloud settings.')}});
 
