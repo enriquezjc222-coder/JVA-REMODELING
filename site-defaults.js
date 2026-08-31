@@ -59,15 +59,15 @@ window.JZX_DEFAULTS = {
   },
 
   "seo": {
-    "siteTitle": "JMX Remodeling LLC | Chicago Remodeling Contractor",
-    "description": "JMX Remodeling LLC provides kitchen, bathroom and complete remodeling services in Chicago and surrounding suburbs.",
+    "siteTitle": "JVA Remodeling | Chicago Remodeling Contractor",
+    "description": "JVA Remodeling provides kitchen, bathroom and complete remodeling services in Chicago and surrounding suburbs.",
     "keywords": "remodeling Chicago, kitchen remodeling, bathroom remodeling, cabinets, countertops, flooring, painting",
     "canonicalUrl": "",
     "socialImage": "images/jzx-main-logo.jpg",
     "searchConsoleVerification": "",
     "googleBusinessUrl": "",
     "googleReviewUrl": "",
-    "businessName": "JMX Remodeling LLC",
+    "businessName": "JVA Remodeling",
     "businessType": "HomeAndConstructionBusiness",
     "priceRange": "$$",
     "streetAddress": "",
