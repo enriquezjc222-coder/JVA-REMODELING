@@ -157,6 +157,117 @@ function initLogin(){
   $('#googleButton').innerHTML='';
   $('#loginNote').textContent='Firebase Authentication is not configured. Admin access is disabled.';
 }
+const visibilityOn=v=>String(v??'yes').toLowerCase()!=='no';
+function ensureVisibility(){
+  data.visibility=data.visibility||{};
+  data.visibility.sections=data.visibility.sections||{};
+  data.visibility.fields=data.visibility.fields||{};
+  data.visibility.items=data.visibility.items||{};
+  data.visibility.itemFields=data.visibility.itemFields||{};
+}
+function makeVisibilitySwitch(checked,onChange,labelText='Visible'){
+  const wrap=document.createElement('span');
+  wrap.className='visibility-switch';
+  wrap.title='Show or hide this item on the public website';
+  wrap.setAttribute('role','switch');
+  wrap.setAttribute('tabindex','0');
+
+  const input=document.createElement('input');
+  input.type='checkbox';
+  input.checked=Boolean(checked);
+  input.setAttribute('aria-label',labelText||'Visibility');
+
+  const slider=document.createElement('span');
+  slider.className='visibility-slider';
+  const label=document.createElement('span');
+  label.className='visibility-switch-text';
+  label.textContent=labelText;
+
+  const syncAria=()=>wrap.setAttribute('aria-checked',input.checked?'true':'false');
+  const commit=()=>{
+    syncAria();
+    onChange(input.checked);
+  };
+  const toggle=()=>{
+    input.checked=!input.checked;
+    input.dispatchEvent(new Event('change',{bubbles:true}));
+  };
+
+  wrap.append(input,slider,label);
+  syncAria();
+  input.addEventListener('change',commit);
+  wrap.addEventListener('click',e=>{
+    e.preventDefault();
+    toggle();
+  });
+  wrap.addEventListener('keydown',e=>{
+    if(e.key===' ' || e.key==='Enter'){
+      e.preventDefault();
+      toggle();
+    }
+  });
+  return wrap;
+}
+function sectionVisible(key){ensureVisibility();return visibilityOn(data.visibility.sections[key]);}
+function fieldVisible(key){ensureVisibility();return visibilityOn(data.visibility.fields[key]);}
+function itemVisible(group,index){ensureVisibility();const src=data.visibility.items[group];return visibilityOn(Array.isArray(src)?src[index]:src?.[index]);}
+function setSectionVisible(key,on){ensureVisibility();data.visibility.sections[key]=on?'yes':'no';save();}
+function setFieldVisible(key,on){ensureVisibility();data.visibility.fields[key]=on?'yes':'no';save();}
+function setItemVisible(group,index,on){
+  ensureVisibility();
+  if(Array.isArray(data.visibility.items[group])) data.visibility.items[group][index]=on?'yes':'no';
+  else {data.visibility.items[group]=data.visibility.items[group]||{};data.visibility.items[group][index]=on?'yes':'no';}
+  save();
+}
+function itemFieldVisible(group,index,field){
+  ensureVisibility();const g=data.visibility.itemFields[group]||{};return visibilityOn(g[`${index}.${field}`]);
+}
+function setItemFieldVisible(group,index,field,on){
+  ensureVisibility();data.visibility.itemFields[group]=data.visibility.itemFields[group]||{};
+  data.visibility.itemFields[group][`${index}.${field}`]=on?'yes':'no';save();
+}
+function addItemVisibilityControls(card,group,index,fields=[]){
+  if(card.querySelector('.item-visibility-controls'))return;
+  const row=document.createElement('div');row.className='item-visibility-controls';
+  row.appendChild(makeVisibilitySwitch(itemVisible(group,index),on=>setItemVisible(group,index,on),'Whole item'));
+  fields.forEach(([field,label])=>row.appendChild(makeVisibilitySwitch(itemFieldVisible(group,index,field),on=>setItemFieldVisible(group,index,field,on),label)));
+  card.insertBefore(row,card.children[1]||null);
+}
+function bindVisibilityUI(){
+  ensureVisibility();
+  const nav=$('#adminNav');
+  [...nav.querySelectorAll(':scope > button')].forEach(button=>{
+    const key=button.dataset.target;
+    const row=document.createElement('div');row.className='nav-visibility-row';
+    button.parentNode.insertBefore(row,button);row.appendChild(button);
+    const sw=makeVisibilitySwitch(sectionVisible(key),on=>setSectionVisible(key,on),'');
+    sw.classList.add('nav-switch');row.appendChild(sw);
+  });
+  $$('.panel').forEach(panel=>{
+    const key=panel.dataset.panel;
+    const bar=document.createElement('div');bar.className='panel-visibility-bar';
+    const txt=document.createElement('div');txt.innerHTML='<strong>Public visibility</strong><span>Turn this section off to remove it from the public site without leaving blank space.</span>';
+    const sw=makeVisibilitySwitch(sectionVisible(key),on=>{
+      setSectionVisible(key,on);
+      $$('.nav-visibility-row').forEach(r=>{const b=r.querySelector('button');if(b?.dataset.target===key){const i=r.querySelector('input');if(i)i.checked=on;}});
+    },'Section on');
+    bar.append(txt,sw);panel.insertBefore(bar,panel.firstChild);
+  });
+  $$('[data-path]').forEach(el=>{
+    const label=el.closest('label'); if(!label||label.querySelector('.field-visibility-control'))return;
+    const key=el.dataset.path;
+    const holder=document.createElement('div');holder.className='field-visibility-control';
+    holder.appendChild(makeVisibilitySwitch(fieldVisible(key),on=>setFieldVisible(key,on),'Show'));
+    label.appendChild(holder);
+  });
+  $$('.image-editor[data-image-key]').forEach(editor=>{
+    if(editor.querySelector('.field-visibility-control'))return;
+    const key=`image:${editor.dataset.imageKey}`;
+    const holder=document.createElement('div');holder.className='field-visibility-control';
+    holder.appendChild(makeVisibilitySwitch(fieldVisible(key),on=>setFieldVisible(key,on),'Show image'));
+    editor.insertBefore(holder,editor.querySelector('img'));
+  });
+}
 function bindSimpleFields(){
   $$('[data-path]').forEach(el=>{el.value=getPath(data,el.dataset.path)??'';el.addEventListener('change',()=>{setPath(data,el.dataset.path,el.value);if(el.dataset.path.startsWith('theme.'))applyAdminThemeVars();save()})});
 }
@@ -292,6 +403,15 @@ async function loadTrafficCounters(){
   }
 }
 $('#refreshTrafficBtn')?.addEventListener('click',loadTrafficCounters);
+
+function bindNav(){
+  $$('#adminNav button').forEach(b=>b.addEventListener('click',()=>{
+    $$('#adminNav button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    $$('.panel').forEach(p=>p.classList.toggle('active',p.dataset.panel===b.dataset.target));
+    if(b.dataset.target==='traffic') loadTrafficCounters();
+  }));
+}
 
 function render(){bindNav();bindSimpleFields();bindThemePreset();bindStaticImageEditors();renderServices();renderProjects();renderTrust();renderProcess();renderTestimonials();renderFaq();renderCatalogue();bindVisibilityUI();updateHistoryButtons();loadTrafficCounters();const cs=$('#cloudStatus');if(cs)cs.textContent=cloudOn()?'Firebase configured — drafts stay local until you choose Publish Changes.':'Firebase is not configured.';}
 
