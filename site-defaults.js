@@ -40,21 +40,22 @@ window.JZX_DEFAULTS = {
     }
   },
   "theme": {
-    "preset": "original",
-    "background": "#080808",
-    "surface": "#101010",
+    "preset": "blue",
+    "designVersion": "blue-collage-v1",
+    "background": "#05080d",
+    "surface": "#0a1119",
     "text": "#ffffff",
-    "muted": "#b8b8b8",
-    "accentDark": "#8a5a00",
-    "accent": "#d69b00",
-    "accentBright": "#ffd700",
-    "accentLight": "#fff4a3",
-    "accentSoft": "#ffbf00",
-    "lineColor": "#d69b00",
-    "glowEnabled": "yes",
-    "glowColor": "#ffd700",
+    "muted": "#cbd5e1",
+    "accentDark": "#05466d",
+    "accent": "#00a8ff",
+    "accentBright": "#58c8ff",
+    "accentLight": "#d9f4ff",
+    "accentSoft": "#2bb8ff",
+    "lineColor": "#00a8ff",
+    "glowEnabled": "no",
+    "glowColor": "#58c8ff",
     "glowDuration": "7",
-    "backgroundImageEnabled": "no",
+    "backgroundImageEnabled": "yes",
     "backgroundOverlay": "82"
   },
 
@@ -92,6 +93,7 @@ window.JZX_DEFAULTS = {
     "serviceArea": "Chicago & Suburbs"
   },
   "hero": {
+    "layout": "split",
     "small": "WE TRANSFORM YOUR SPACE",
     "messageHtml": "QUALITY, HONESTY<br>AND DETAILS <span>you can see</span>",
     "description": "Specialists in kitchens, bathrooms and complete remodeling. We make your vision a reality.",
@@ -100,8 +102,11 @@ window.JZX_DEFAULTS = {
   "images": {
     "headerLogo": "images/logo-small.jpg",
     "heroBackground": "images/hero-kitchen.jpg",
+    "heroSingle": "images/hero-kitchen.jpg",
+    "heroLeft": "images/hero-kitchen.jpg",
+    "heroRight": "images/jzx-main-logo.jpg",
     "mainLogo": "images/jzx-main-logo.jpg",
-    "siteBackground": ""
+    "siteBackground": "images/site-background-full-scroll.jpg"
   },
   "services": [
     {

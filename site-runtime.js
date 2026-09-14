@@ -1,6 +1,7 @@
 (() => {
   'use strict';
   const STORAGE_KEY = 'jzx-site-settings-v1';
+  const DRAFT_KEY = 'jzx-site-draft-v1';
   const DB_NAME = 'jzx-site-assets';
   const STORE_NAME = 'images';
 
@@ -15,34 +16,53 @@
   };
   let settings = window.JZX_DEFAULTS || {};
   const loadSettings = async () => {
-    let local = {};
-    try { local = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch {}
+    const defaults = window.JZX_DEFAULTS || {};
+    let cached = {};
+    try { cached = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch {}
 
-    // Local data is only a fallback if Firebase is unavailable.
-    let merged = deepMerge(window.JZX_DEFAULTS || {}, local);
+    // Admin draft preview is explicit and local-only. It never publishes and
+    // never changes the normal public-site Firestore priority.
+    const previewMode = new URLSearchParams(window.location.search).get('preview') === '1';
+    if (previewMode) {
+      let draft = {};
+      try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); } catch {}
+      return deepMerge(defaults, draft);
+    }
+
+    // Public-site priority is strict:
+    //   1) published Firestore settings
+    //   2) last known browser cache if the cloud is temporarily unavailable
+    //   3) site-defaults.js when neither of the above exists
+    // localStorage is never allowed to override a successfully loaded cloud copy.
+    let merged = deepMerge(defaults, cached);
 
     try {
       if (window.JZXCloud?.enabled?.()) {
         window.JZXCloud.init();
         const remote = await window.JZXCloud.loadSettings();
-
-        // On the PUBLIC website the cloud copy is authoritative on EVERY device.
-        // This prevents an old laptop localStorage copy from overriding changes
-        // that were published from the phone (and vice versa).
         if (remote) {
-          merged = deepMerge(window.JZX_DEFAULTS || {}, remote);
+          merged = deepMerge(defaults, remote);
+          // Cache the authoritative published result for offline/temporary
+          // network fallback only. It is not a second source of truth.
           localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+          return merged;
         }
       }
     } catch (err) {
-      console.warn('Cloud settings unavailable; using local/default settings.', err);
+      console.warn('Published Firestore settings unavailable; using cached/default settings.', err);
     }
     return merged;
   };
 
-  // Images are deployed with the site from the /images folder.
-  // Firebase is used only for settings/text/visibility, not binary image storage.
-  const getImage = async key => null;
+  // Existing content images remain file-managed. Hero layout previews may use
+  // IndexedDB only when Preview Draft is active; published hero uploads use
+  // Firebase Storage URLs stored in the existing settings document.
+  const openAssetDb=()=>new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE_NAME))r.result.createObjectStore(STORE_NAME)};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+  const getImage = async key => {
+    const previewMode=new URLSearchParams(location.search).get('preview')==='1';
+    if(!previewMode) return null;
+    try{const db=await openAssetDb();return await new Promise((res,rej)=>{const r=db.transaction(STORE_NAME,'readonly').objectStore(STORE_NAME).get(key);r.onsuccess=()=>res(r.result||null);r.onerror=()=>rej(r.error)})}catch{return null}
+  };
   const setText = (id, value, html=false) => { const el=document.getElementById(id); if(el && value!=null) html ? el.innerHTML=value : el.textContent=value; };
   const setHref = (id, href) => { const el=document.getElementById(id); if(el) el.href=href || '#'; };
   const setImg = async (selector, key, fallback) => {
@@ -118,21 +138,31 @@
     }
   };
 
+  const ensureBlueDesign = () => {
+    settings.theme=settings.theme||{};
+    if(settings.theme.designVersion==='blue-background-v2') return;
+    Object.assign(settings.theme,{preset:'blue',designVersion:'blue-background-v2',background:'#05080d',surface:'#0a1119',text:'#ffffff',muted:'#cbd5e1',accentDark:'#05466d',accent:'#00a8ff',accentBright:'#58c8ff',accentLight:'#d9f4ff',accentSoft:'#2bb8ff',lineColor:'#00a8ff',glowColor:'#58c8ff',glowEnabled:'no'});
+  };
+
   const applyTheme = async () => {
     const raw=settings.theme||{}, d=window.JZX_DEFAULTS?.theme||{}, root=document.documentElement;
     const t={}; Object.keys({...d,...raw}).forEach(k=>t[k]=sectionOn('theme')?fieldValue(`theme.${k}`,raw[k],d[k]):d[k]);
     const vars={
       '--gold-dark':t.accentDark||'#8a5a00','--gold':t.accent||'#d69b00','--gold-bright':t.accentBright||'#ffd700','--gold-light':t.accentLight||'#fff4a3','--gold-soft':t.accentSoft||'#ffbf00',
-      '--black':t.background||'#080808','--black-soft':t.surface||'#101010','--gray':t.muted||'#b8b8b8','--theme-bg':t.background||'#080808','--theme-surface':t.surface||'#101010','--theme-text':t.text||'#ffffff','--theme-muted':t.muted||'#b8b8b8','--theme-line':t.lineColor||t.accent||'#d69b00','--theme-glow':t.glowColor||t.accentBright||'#ffd700','--theme-glow-duration':`${Math.max(2,Number(t.glowDuration)||7)}s`
+      '--black':t.background||'#080808','--black-soft':t.surface||'#101010','--gray':t.muted||'#b8b8b8','--theme-bg':t.background||'#080808','--theme-surface':t.surface||'#101010','--theme-text':t.text||'#ffffff','--theme-muted':t.muted||'#b8b8b8','--theme-line':t.lineColor||t.accent||'#d69b00','--theme-glow':t.glowColor||t.accentBright||'#ffd700','--theme-glow-duration':`${Math.max(2,Number(t.glowDuration)||7)}s`,
+      '--theme-accent':t.accent||'#00a8ff','--theme-accent-secondary':t.accentDark||'#0077cc','--theme-accent-dark':t.accentDark||'#05466d','--theme-accent-bright':t.accentBright||'#58c8ff','--theme-border':t.lineColor||t.accent||'#00a8ff','--theme-border-soft':hexToRgba(t.lineColor||t.accent||'#00a8ff',.32)
     };
     Object.entries(vars).forEach(([k,v])=>root.style.setProperty(k,v));
     root.classList.add('theme-managed');
     const glowOn=String(t.glowEnabled??'yes').toLowerCase()!=='no';
     root.classList.toggle('theme-glow-on',glowOn); root.classList.toggle('theme-glow-off',!glowOn);
-    const bgOn=String(t.backgroundImageEnabled??'no').toLowerCase()==='yes';
-    const customBg=await getImage('siteBackground'); const fallback=settings.images?.siteBackground||''; const bg=customBg||fallback;
-    root.classList.toggle('theme-has-bg-image',Boolean(bgOn&&bg));
-    root.style.setProperty('--site-background-image',bgOn&&bg?`url("${bg}")`:'none');
+    const bgOn=true;
+    // This review build intentionally uses the exact supplied long background file
+    // as the official public-site background. Existing saved theme/background data
+    // is preserved but does not override this requested design image.
+    const bg='images/site-background-full-scroll.jpg';
+    root.classList.toggle('theme-has-bg-image',true);
+    root.style.setProperty('--site-background-image',`url("${bg}")`);
     const opacity=Math.min(100,Math.max(0,Number(t.backgroundOverlay??82)))/100;
     root.style.setProperty('--theme-section-overlay',hexToRgba(t.background||'#080808',opacity));
     root.style.setProperty('--theme-card-overlay',hexToRgba(t.surface||'#101010',Math.min(1,opacity+.08)));
@@ -154,8 +184,7 @@
         await window.JZXCloud.incrementTraffic();
         return;
       }
-      const monthKey=localMonthKey(), globalKey='jzx-traffic-global-v1', monthlyKey=`jzx-traffic-monthly-v1:${monthKey}`;
-      localStorage.setItem(globalKey, String((Number(localStorage.getItem(globalKey))||0)+1));
+      const monthKey=localMonthKey(), monthlyKey=`jzx-traffic-monthly-v1:${monthKey}`;
       localStorage.setItem(monthlyKey, String((Number(localStorage.getItem(monthlyKey))||0)+1));
     } catch(err) { console.warn('Traffic counter could not be updated.', err); }
   };
@@ -207,8 +236,11 @@
     setVisible('#heroSmall',fieldOn('hero.small')); setVisible('#heroMessage',fieldOn('hero.messageHtml'));
     setVisible('#heroDescription',fieldOn('hero.description')); setVisible('#heroCta',fieldOn('hero.cta'));
     const headerLogoOn=fieldOn('image:headerLogo'); setVisible('#headerLogo',headerLogoOn); setVisible('.logo-small',headerLogoOn);
-    const mainLogoOn=fieldOn('image:mainLogo'); setVisible('#mainLogo',mainLogoOn); setVisible('#home .hero-right',mainLogoOn);
-    document.getElementById('home')?.classList.toggle('hero-no-right',!mainLogoOn);
+    // Header logo is independent from hero layout. The legacy mainLogo data is preserved
+    // but is no longer rendered as a third overlay inside the Hero.
+    const heroLayout=(settings.hero?.layout==='single'?'single':'split');
+    setVisible('#home .hero-right',heroLayout==='split');
+    document.getElementById('home')?.classList.toggle('hero-no-right',heroLayout==='single');
     const heroBgOn=fieldOn('image:heroBackground');
     setVisible('#heroLeft .hero-left-bg',heroBgOn);
     document.getElementById('heroLeft')?.classList.toggle('hero-image-off',!heroBgOn);
@@ -297,6 +329,7 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     settings = await loadSettings();
+    ensureBlueDesign();
     recordTraffic();
     applySeo();
     await applyTheme();
@@ -307,10 +340,25 @@
     setHref('topFacebook', c.facebook); setHref('topInstagram', c.instagram);
 
     setText('heroSmall', h.small); setText('heroMessage', h.messageHtml, true); setText('heroDescription', h.description); setText('heroCta', h.cta);
-    await setImg('#headerLogo','headerLogo',im.headerLogo);
-    await setImg('#mainLogo','mainLogo',im.mainLogo);
-    const heroSaved=await getImage('heroBackground');
-    document.documentElement.style.setProperty('--hero-image', `url("${heroSaved || im.heroBackground || 'images/hero-kitchen.jpg'}")`);
+    const headerLogoSrc=(!im.headerLogo || im.headerLogo==='images/header-logo-blue-reference.png') ? 'images/logo-small.jpg' : im.headerLogo;
+    await setImg('#headerLogo','headerLogo',headerLogoSrc);
+    const hero=document.getElementById('home');
+    const layout=(h.layout==='single'?'single':'split');
+    hero?.classList.toggle('hero-layout-single',layout==='single');
+    hero?.classList.toggle('hero-layout-split',layout==='split');
+    // Hero artwork is intentionally file-managed from /images, matching the
+    // catalogue workflow. Admin controls the layout only; it does not upload
+    // or replace Hero image files through Firebase Storage or local preview DB.
+    const heroFileDefaults=(window.JZX_DEFAULTS && window.JZX_DEFAULTS.images) || {};
+    const legacy=heroFileDefaults.heroBackground || 'images/hero-kitchen.jpg';
+    const single=heroFileDefaults.heroSingle || legacy;
+    const left=heroFileDefaults.heroLeft || legacy;
+    const right=heroFileDefaults.heroRight || 'images/jzx-main-logo.jpg';
+    const root=document.documentElement;
+    root.style.setProperty('--hero-image',legacy?`url("${legacy}")`:'none');
+    root.style.setProperty('--hero-single-image',single?`url("${single}")`:'none');
+    root.style.setProperty('--hero-left-image',left?`url("${left}")`:'none');
+    root.style.setProperty('--hero-right-image',right?`url("${right}")`:'none');
 
     const quickPhone=document.getElementById('quickPhone'); if(quickPhone){quickPhone.href=`tel:+${c.phoneDigits}`; const q=quickPhone.querySelector('p'); if(q) q.textContent=c.phoneDisplay;}
     const quickW=document.getElementById('quickWhatsapp'); if(quickW){quickW.href=`https://wa.me/${c.whatsappDigits}`; const q=quickW.querySelector('p'); if(q) q.textContent=c.phoneDisplay;}

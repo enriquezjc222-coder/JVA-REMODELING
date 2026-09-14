@@ -20,6 +20,11 @@
       const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     }
   };
+  const previousMonthKey = (key=chicagoMonthKey()) => {
+    const [y,m] = String(key).split('-').map(Number);
+    const d = new Date(Date.UTC(y,m-2,15));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;
+  };
   function init(){
     if(initialized) return true;
     if(!enabled()) return false;
@@ -38,7 +43,20 @@
     return result.user;
   }
   async function signOut(){ if(init()) await auth.signOut(); }
-  function onAuth(cb){ if(!init()) return () => {}; return auth.onAuthStateChanged(u => cb(isAllowed(u) ? u : null)); }
+  function onAuth(cb){
+    if(!init()) return () => {};
+    // Firebase Auth is the single source of truth for admin session state.
+    // If a Google account is signed in but is not the configured admin, sign
+    // it out immediately so the private admin UI cannot remain available.
+    return auth.onAuthStateChanged(async user => {
+      if(user && !isAllowed(user)){
+        try{ await auth.signOut(); }catch(err){ console.warn('Could not sign out unauthorized account.', err); }
+        cb(null,{unauthorized:true});
+        return;
+      }
+      cb(user || null,{unauthorized:false});
+    });
+  }
   async function loadSettings(){ if(!init()) return null; const snap = await db.doc(settingsDoc()).get(); return snap.exists ? snap.data() : null; }
   async function saveSettings(data){ if(!init()) throw new Error('Firebase is not configured.'); const user=auth.currentUser; if(!user || !isAllowed(user)) throw new Error('Admin sign-in required.'); await db.doc(settingsDoc()).set(data,{merge:false}); return true; }
   async function uploadImage(key,file){
@@ -63,16 +81,18 @@
     if(!init()) return null;
     const user=auth.currentUser;
     if(!user || !isAllowed(user)) throw new Error('Admin sign-in required to read traffic counters.');
-    const monthKey = chicagoMonthKey();
-    const [globalSnap, monthlySnap] = await Promise.all([
-      db.doc(trafficGlobalDoc()).get(),
-      db.doc(`${trafficMonthlyPrefix()}${monthKey}`).get()
+    const currentMonthKey = chicagoMonthKey();
+    const previousMonthKeyValue = previousMonthKey(currentMonthKey);
+    const [currentSnap, previousSnap] = await Promise.all([
+      db.doc(`${trafficMonthlyPrefix()}${currentMonthKey}`).get(),
+      db.doc(`${trafficMonthlyPrefix()}${previousMonthKeyValue}`).get()
     ]);
     return {
-      monthKey,
-      monthly: monthlySnap.exists ? Number(monthlySnap.data()?.views || 0) : 0,
-      global: globalSnap.exists ? Number(globalSnap.data()?.views || 0) : 0
+      currentMonthKey,
+      previousMonthKey: previousMonthKeyValue,
+      current: currentSnap.exists ? Number(currentSnap.data()?.views || 0) : 0,
+      previous: previousSnap.exists ? Number(previousSnap.data()?.views || 0) : 0
     };
   }
-  window.JZXCloud = { enabled, init, signIn, signOut, onAuth, isAllowed, loadSettings, saveSettings, uploadImage, deleteImageByUrl, incrementTraffic, loadTrafficStats, chicagoMonthKey };
+  window.JZXCloud = { enabled, init, signIn, signOut, onAuth, isAllowed, loadSettings, saveSettings, uploadImage, deleteImageByUrl, incrementTraffic, loadTrafficStats, chicagoMonthKey, previousMonthKey };
 })();

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Request a free remodeling estimate from JVA Remodeling.">
+  <title>Free Estimate Request | JVA Remodeling</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="estimate.css">
+</head>
+<body>
+  <header class="estimate-header">
+    <a class="brand" href="../" aria-label="Back to JVA Remodeling home">
+      <img src="../images/logo-small.jpg" alt="JVA Remodeling logo">
+      <span>JVA Remodeling</span>
+    </a>
+    <a class="back-link" href="../">Back to website</a>
+  </header>
+
+  <main>
+    <section class="estimate-hero">
+      <p class="eyebrow">JVA REMODELING</p>
+      <h1>Free Estimate Request</h1>
+      <p class="intro">Tell us about your project and upload photos or short videos if they help explain the work. We’ll review your request and contact you as soon as possible.</p>
+    </section>
+
+    <section class="form-shell" aria-labelledby="formTitle">
+<h2 id="formTitle">Project information</h2>
+      <p class="required-note">Fields marked <span aria-hidden="true">*</span> are required.</p>
+
+      <form id="estimateForm" novalidate>
+        <div class="grid two">
+          <label class="field">
+            <span>Full Name <b>*</b></span>
+            <input id="fullName" name="fullName" type="text" autocomplete="name" maxlength="120" required>
+            <small class="error" data-error-for="fullName"></small>
+          </label>
+
+          <label class="field">
+            <span>Phone Number <b>*</b></span>
+            <input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="40" required>
+            <small class="error" data-error-for="phone"></small>
+          </label>
+        </div>
+
+        <div class="grid two">
+          <label class="field">
+            <span>Email Address <b>*</b></span>
+            <input id="email" name="email" type="email" autocomplete="email" maxlength="180" required>
+            <small class="error" data-error-for="email"></small>
+          </label>
+
+          <label class="field">
+            <span>Project Type <b>*</b></span>
+            <select id="projectType" name="projectType" required>
+              <option value="">Select a project type</option>
+              <option>Kitchen Remodeling</option>
+              <option>Bathroom Remodeling</option>
+              <option>Cabinets &amp; Countertops</option>
+              <option>Flooring</option>
+              <option>Painting</option>
+              <option>Drywall</option>
+              <option>Molding &amp; Trim</option>
+              <option>Outdoor Kitchen</option>
+              <option>Fireplace</option>
+              <option>Lighting</option>
+              <option>Security Cameras</option>
+              <option>Other</option>
+            </select>
+            <small class="error" data-error-for="projectType"></small>
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Tell us about your project <b>*</b></span>
+          <textarea id="description" name="description" rows="9" maxlength="12000" required placeholder="Describe what you would like to remodel, approximate scope, materials you are considering, timing, or anything else that would help us understand the project."></textarea>
+          <div class="field-meta"><small class="error" data-error-for="description"></small><small id="descriptionCount">0 / 12,000</small></div>
+        </label>
+
+        <div class="field upload-field">
+          <span class="upload-label">Photos / Videos <em>(optional)</em></span>
+          <label class="upload-box" for="projectFiles">
+            <strong>Choose up to 10 files</strong>
+            <span>JPG, PNG, WEBP, HEIC, MP4 or MOV. Images up to 10 MB each; videos up to 50 MB each; 100 MB total maximum.</span>
+          </label>
+          <input id="projectFiles" name="projectFiles" type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime" hidden>
+          <div id="fileSummary" class="file-summary" aria-live="polite">No files selected.</div>
+          <ul id="fileList" class="file-list"></ul>
+          <small class="error" data-error-for="projectFiles"></small>
+        </div>
+
+        <label class="honeypot" aria-hidden="true">Company website<input id="website" name="website" type="text" tabindex="-1" autocomplete="off"></label>
+        <input id="startedAt" name="startedAt" type="hidden">
+
+        <div id="formMessage" class="form-message" role="status" aria-live="polite"></div>
+        <button id="submitBtn" class="submit-btn" type="submit">Submit Request</button>
+        <p class="privacy-note">Your uploaded project files are intended to be temporary and are scheduled for automatic deletion after approximately 7 days once the production backend is enabled.</p>
+      </form>
+
+      <section id="successPanel" class="success-panel" hidden tabindex="-1">
+        <div class="check">✓</div>
+        <h2>Thank you!</h2>
+        <p>Your estimate request has been received. We’ll contact you as soon as possible.</p>
+        <a href="../">Return to JVA Remodeling</a>
+      </section>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 2026 JVA Remodeling. All rights reserved.</span>
+  </footer>
+
+  <script src="estimate-config.js"></script>
+  <script src="estimate.js"></script>
+</body>
+</html>

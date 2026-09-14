@@ -1,10 +1,28 @@
 (() => {
 'use strict';
-const STORAGE_KEY='jzx-site-settings-v1', SESSION_KEY='jzx-admin-session-v1', DB_NAME='jzx-site-assets', STORE='images';
+const STORAGE_KEY='jzx-site-settings-v1', DRAFT_KEY='jzx-site-draft-v1', SESSION_KEY='jzx-admin-session-v1', DB_NAME='jzx-site-assets', STORE='images';
 const defaults=window.JZX_DEFAULTS||{}, cfg=window.JZX_ADMIN_CONFIG||{};
 const clone=o=>JSON.parse(JSON.stringify(o));
 const deepMerge=(a,b)=>{if(Array.isArray(a))return Array.isArray(b)?b.map((v,i)=>deepMerge(a[i]??{},v)):clone(a);if(a&&typeof a==='object'){const o={...a};if(b&&typeof b==='object')Object.keys(b).forEach(k=>o[k]=deepMerge(a[k],b[k]));return o}return b===undefined?a:b};
-let data=(()=>{try{return deepMerge(defaults,JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}'))}catch{return clone(defaults)}})();
+let data=(()=>{try{return deepMerge(defaults,JSON.parse(localStorage.getItem(DRAFT_KEY)||localStorage.getItem(STORAGE_KEY)||'{}'))}catch{return clone(defaults)}})();
+const ensureBlueDesign=()=>{data.theme=data.theme||{};if(data.theme.designVersion==='blue-collage-v1')return;Object.assign(data.theme,{preset:'blue',designVersion:'blue-collage-v1',background:'#05080d',surface:'#0a1119',text:'#ffffff',muted:'#cbd5e1',accentDark:'#05466d',accent:'#00a8ff',accentBright:'#58c8ff',accentLight:'#d9f4ff',accentSoft:'#2bb8ff',lineColor:'#00a8ff',glowColor:'#58c8ff',glowEnabled:'no'});};
+ensureBlueDesign();
+const normalizeRestoredBrandAssets=()=>{
+  data.images=data.images||{};
+  if(!data.images.headerLogo || data.images.headerLogo==='images/header-logo-blue-reference.png') data.images.headerLogo='images/logo-small.jpg';
+  if(!data.images.heroSingle || String(data.images.heroSingle).startsWith('local-preview:')) data.images.heroSingle='images/hero-kitchen.jpg';
+  if(!data.images.heroLeft || String(data.images.heroLeft).startsWith('local-preview:')) data.images.heroLeft='images/hero-kitchen.jpg';
+  if(!data.images.heroRight || data.images.heroRight==='images/bathroom.jpg' || String(data.images.heroRight).startsWith('local-preview:')) data.images.heroRight='images/jzx-main-logo.jpg';
+};
+normalizeRestoredBrandAssets();
+const applyAdminThemeVars=()=>{const t=data.theme||{};const r=document.documentElement.style;r.setProperty('--theme-accent',t.accent||'#00a8ff');r.setProperty('--theme-accent-secondary',t.accentDark||'#0077cc');r.setProperty('--theme-accent-dark',t.accentDark||'#05466d');r.setProperty('--theme-accent-bright',t.accentBright||'#58c8ff');r.setProperty('--theme-bg',t.background||'#05080d');r.setProperty('--theme-surface',t.surface||'#0a1119');r.setProperty('--theme-text',t.text||'#ffffff');r.setProperty('--theme-text-secondary',t.muted||'#cbd5e1');r.setProperty('--theme-border',t.lineColor||t.accent||'#00a8ff');r.setProperty('--gold',t.accent||'#00a8ff');r.setProperty('--bright',t.accentBright||'#58c8ff');};
+applyAdminThemeVars();
+const UNDO_KEY='jzx-admin-undo-v1', REDO_KEY='jzx-admin-redo-v1';
+const readHistory=key=>{try{const v=JSON.parse(sessionStorage.getItem(key)||'[]');return Array.isArray(v)?v:[]}catch{return []}};
+const writeHistory=(key,v)=>{try{sessionStorage.setItem(key,JSON.stringify(v.slice(-30)))}catch{}};
+let lastDraftSnapshot=clone(data);
+const pushUndoSnapshot=()=>{const stack=readHistory(UNDO_KEY);stack.push(clone(lastDraftSnapshot));writeHistory(UNDO_KEY,stack);writeHistory(REDO_KEY,[]);lastDraftSnapshot=clone(data);};
+const updateHistoryButtons=()=>{const u=$('#undoBtn'),r=$('#redoBtn');if(u)u.disabled=readHistory(UNDO_KEY).length===0;if(r)r.disabled=readHistory(REDO_KEY).length===0;};
 const cloudOn=()=>Boolean(window.JZXCloud?.enabled?.());
 let cloudTimer=null, rendered=false;
 const status=t=>{const st=document.querySelector('#saveStatus');if(st)st.textContent=t};
@@ -17,6 +35,7 @@ const queueCloudSave=()=>{
       data.__meta.publishedAt=Date.now();
       await window.JZXCloud.saveSettings(data);
       localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+      localStorage.setItem(DRAFT_KEY,JSON.stringify(data));
       status('Published to cloud.');
     }catch(e){
       console.warn(e);
@@ -41,16 +60,18 @@ const dataUrlToFile=(dataUrl,key)=>{
 const getPath=(o,p)=>p.split('.').reduce((x,k)=>x?.[k],o);
 const setPath=(o,p,v)=>{const ks=p.split('.');let x=o;ks.slice(0,-1).forEach(k=>x=x[k]??=(/^\d+$/.test(ks[ks.indexOf(k)+1]||'')?[]:{}));x[ks.at(-1)]=v};
 const save=()=>{
+  pushUndoSnapshot();
   data.__meta=data.__meta||{};
   data.__meta.localUpdatedAt=Date.now();
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+  localStorage.setItem(DRAFT_KEY,JSON.stringify(data));
+  lastDraftSnapshot=clone(data);
   const st=$('#saveStatus');
   if(st){
-    st.textContent=cloudOn()?'Saved on this device — syncing to cloud…':'Saved on this device — refresh the website to see changes.';
+    st.textContent=cloudOn()?'Draft saved on this device — use Preview Draft, then Publish Changes when ready.':'Draft saved on this device — use Preview Draft to review it.';
     st.classList.add('save-flash');
     setTimeout(()=>st.classList.remove('save-flash'),800);
   }
-  queueCloudSave();
+  updateHistoryButtons();
 };
 const fileToData=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(f)});
 let adminCloudLoaded=false;
@@ -65,15 +86,18 @@ const showAdmin=async()=>{
       const remote=await window.JZXCloud.loadSettings();
       if(remote){
         let local={};
-        try{local=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{}
+        try{local=JSON.parse(localStorage.getItem(DRAFT_KEY)||'{}')}catch{}
         const localEdited=Number(local?.__meta?.localUpdatedAt||0);
         const remotePublished=Number(remote?.__meta?.publishedAt||0);
 
         // In the ADMIN only, preserve a newer unpublished edit from this device.
         data=deepMerge(defaults,remote);
         if(localEdited>remotePublished) data=deepMerge(data,local);
+        ensureBlueDesign();
+        normalizeRestoredBrandAssets();
 
-        localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+        localStorage.setItem(DRAFT_KEY,JSON.stringify(data));
+        lastDraftSnapshot=clone(data);
         status(localEdited>remotePublished
           ? 'Loaded cloud settings; newer edits on this device are still pending publication.'
           : 'Loaded latest settings from cloud.');
@@ -89,160 +113,52 @@ const showAdmin=async()=>{
     rendered=true;
   }
 };
-const logout=async()=>{sessionStorage.removeItem(SESSION_KEY);try{if(cloudOn())await window.JZXCloud.signOut()}catch{}location.reload()};
+const hideAdmin=(message='')=>{
+  $('#adminView')?.classList.add('hidden');
+  $('#loginView')?.classList.remove('hidden');
+  sessionStorage.removeItem(SESSION_KEY);
+  if(message && $('#loginNote')) $('#loginNote').textContent=message;
+};
+const logout=async()=>{sessionStorage.removeItem(SESSION_KEY);try{if(cloudOn())await window.JZXCloud.signOut()}catch{}hideAdmin('Signed out. Sign in with the authorized Google account.');};
 
 function initLogin(){
-  const local=/^(localhost|127\.0\.0\.1)$/.test(location.hostname)||location.protocol==='file:';
-  $('#previewLogin').style.display=(local&&!cfg.productionMode)?'inline-flex':'none';
-  $('#previewLogin').addEventListener('click',showAdmin); $('#logoutBtn').addEventListener('click',logout);
+  // PRODUCTION BUILD: Firebase Google Authentication is always required.
+  // There is no localhost/file:// bypass in this build.
+  const previewBtn=$('#previewLogin');
+  if(previewBtn) previewBtn.remove();
+  $('#logoutBtn').addEventListener('click',logout);
+
   if(cloudOn()){
     window.JZXCloud.init();
-    const host=$('#googleButton'); host.innerHTML='<button class="btn primary" id="firebaseGoogleLogin" type="button">Sign in with Google</button>';
-    $('#firebaseGoogleLogin').addEventListener('click',async()=>{try{await window.JZXCloud.signIn();await showAdmin()}catch(e){alert(e.message||'Google sign-in failed.')}});
-    $('#loginNote').textContent='Firebase Google Sign-In is enabled. Only the authorized Google account can publish changes.';
-    window.JZXCloud.onAuth(async user=>{if(user)await showAdmin()});
+    const host=$('#googleButton');
+    host.innerHTML='<button class="btn primary" id="firebaseGoogleLogin" type="button">Sign in with Google</button>';
+    $('#firebaseGoogleLogin').addEventListener('click',async()=>{
+      try{
+        await window.JZXCloud.signIn();
+      }catch(e){
+        hideAdmin('Sign in with the authorized Google account.');
+        alert(e.message||'Google sign-in failed.');
+      }
+    });
+    $('#loginNote').textContent='Sign in with the authorized Google account to access and publish website changes.';
+    window.JZXCloud.onAuth(async (user,state)=>{
+      if(user){
+        await showAdmin();
+        return;
+      }
+      hideAdmin(state?.unauthorized
+        ? 'This Google account is not authorized. Sign in with the authorized account.'
+        : 'Sign in with the authorized Google account.');
+    });
     return;
   }
-  if(sessionStorage.getItem(SESSION_KEY)==='1'&&local&&!cfg.productionMode){showAdmin();return}
-  const tryGoogle=()=>{
-    if(!cfg.googleClientId||!window.google?.accounts?.id)return;
-    google.accounts.id.initialize({client_id:cfg.googleClientId,callback:cred=>{
-      try{const payload=JSON.parse(atob(cred.credential.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));if(cfg.allowedGoogleEmail&&payload.email.toLowerCase()!==cfg.allowedGoogleEmail.toLowerCase())return alert('This Google account is not authorized.');showAdmin()}catch{alert('Google sign-in could not be verified.')}}});
-    google.accounts.id.renderButton($('#googleButton'),{theme:'filled_black',size:'large',width:360});
-    $('#loginNote').textContent='Sign in with your authorized Google account.';
-  };
-  setTimeout(tryGoogle,900);
-}
 
-
-const visibilityOn=v=>String(v??'yes').toLowerCase()!=='no';
-function ensureVisibility(){
-  data.visibility=data.visibility||{};
-  data.visibility.sections=data.visibility.sections||{};
-  data.visibility.fields=data.visibility.fields||{};
-  data.visibility.items=data.visibility.items||{};
-  data.visibility.itemFields=data.visibility.itemFields||{};
-}
-function makeVisibilitySwitch(checked,onChange,labelText='Visible'){
-  const wrap=document.createElement('span');
-  wrap.className='visibility-switch';
-  wrap.title='Show or hide this item on the public website';
-  wrap.setAttribute('role','switch');
-  wrap.setAttribute('tabindex','0');
-
-  const input=document.createElement('input');
-  input.type='checkbox';
-  input.checked=Boolean(checked);
-  input.setAttribute('aria-label',labelText||'Visibility');
-
-  const slider=document.createElement('span');
-  slider.className='visibility-slider';
-  const label=document.createElement('span');
-  label.className='visibility-switch-text';
-  label.textContent=labelText;
-
-  const syncAria=()=>wrap.setAttribute('aria-checked',input.checked?'true':'false');
-  const commit=()=>{
-    syncAria();
-    onChange(input.checked);
-  };
-  const toggle=()=>{
-    input.checked=!input.checked;
-    input.dispatchEvent(new Event('change',{bubbles:true}));
-  };
-
-  wrap.append(input,slider,label);
-  syncAria();
-
-  input.addEventListener('change',commit);
-
-  // The real checkbox is visually hidden. Make the entire rendered switch
-  // (track, knob and text) clickable/touchable instead of relying on the
-  // hidden input to receive pointer events.
-  wrap.addEventListener('click',e=>{
-    e.preventDefault();
-    toggle();
-  });
-  wrap.addEventListener('keydown',e=>{
-    if(e.key===' ' || e.key==='Enter'){
-      e.preventDefault();
-      toggle();
-    }
-  });
-
-  return wrap;
-}
-function sectionVisible(key){ensureVisibility();return visibilityOn(data.visibility.sections[key]);}
-function fieldVisible(key){ensureVisibility();return visibilityOn(data.visibility.fields[key]);}
-function itemVisible(group,index){ensureVisibility();const src=data.visibility.items[group];return visibilityOn(Array.isArray(src)?src[index]:src?.[index]);}
-function setSectionVisible(key,on){ensureVisibility();data.visibility.sections[key]=on?'yes':'no';save();}
-function setFieldVisible(key,on){ensureVisibility();data.visibility.fields[key]=on?'yes':'no';save();}
-function setItemVisible(group,index,on){
-  ensureVisibility();
-  if(Array.isArray(data.visibility.items[group])) data.visibility.items[group][index]=on?'yes':'no';
-  else {data.visibility.items[group]=data.visibility.items[group]||{};data.visibility.items[group][index]=on?'yes':'no';}
-  save();
-}
-function itemFieldVisible(group,index,field){
-  ensureVisibility();const g=data.visibility.itemFields[group]||{};return visibilityOn(g[`${index}.${field}`]);
-}
-function setItemFieldVisible(group,index,field,on){
-  ensureVisibility();data.visibility.itemFields[group]=data.visibility.itemFields[group]||{};
-  data.visibility.itemFields[group][`${index}.${field}`]=on?'yes':'no';save();
-}
-function addItemVisibilityControls(card,group,index,fields=[]){
-  if(card.querySelector('.item-visibility-controls'))return;
-  const row=document.createElement('div');row.className='item-visibility-controls';
-  row.appendChild(makeVisibilitySwitch(itemVisible(group,index),on=>setItemVisible(group,index,on),'Whole item'));
-  fields.forEach(([field,label])=>row.appendChild(makeVisibilitySwitch(itemFieldVisible(group,index,field),on=>setItemFieldVisible(group,index,field,on),label)));
-  card.insertBefore(row,card.children[1]||null);
-}
-function bindVisibilityUI(){
-  ensureVisibility();
-  const nav=$('#adminNav');
-  [...nav.querySelectorAll(':scope > button')].forEach(button=>{
-    const key=button.dataset.target;
-    const row=document.createElement('div');row.className='nav-visibility-row';
-    button.parentNode.insertBefore(row,button);row.appendChild(button);
-    const sw=makeVisibilitySwitch(sectionVisible(key),on=>setSectionVisible(key,on),'');
-    sw.classList.add('nav-switch');row.appendChild(sw);
-  });
-  $$('.panel').forEach(panel=>{
-    const key=panel.dataset.panel;
-    const bar=document.createElement('div');bar.className='panel-visibility-bar';
-    const txt=document.createElement('div');txt.innerHTML='<strong>Public visibility</strong><span>Turn this section off to remove it from the public site without leaving blank space.</span>';
-    const sw=makeVisibilitySwitch(sectionVisible(key),on=>{
-      setSectionVisible(key,on);
-      $$('.nav-visibility-row').forEach(r=>{const b=r.querySelector('button');if(b?.dataset.target===key){const i=r.querySelector('input');if(i)i.checked=on;}});
-    },'Section on');
-    bar.append(txt,sw);panel.insertBefore(bar,panel.firstChild);
-  });
-  $$('[data-path]').forEach(el=>{
-    const label=el.closest('label'); if(!label||label.querySelector('.field-visibility-control'))return;
-    const key=el.dataset.path;
-    const holder=document.createElement('div');holder.className='field-visibility-control';
-    holder.appendChild(makeVisibilitySwitch(fieldVisible(key),on=>setFieldVisible(key,on),'Show'));
-    label.appendChild(holder);
-  });
-  $$('.image-editor[data-image-key]').forEach(editor=>{
-    if(editor.querySelector('.field-visibility-control'))return;
-    const key=`image:${editor.dataset.imageKey}`;
-    const holder=document.createElement('div');holder.className='field-visibility-control';
-    holder.appendChild(makeVisibilitySwitch(fieldVisible(key),on=>setFieldVisible(key,on),'Show image'));
-    editor.insertBefore(holder,editor.querySelector('img'));
-  });
-}
-
-function bindNav(){
-  $$('#adminNav button').forEach(b=>b.addEventListener('click',()=>{
-    $$('#adminNav button').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active');
-    $$('.panel').forEach(p=>p.classList.toggle('active',p.dataset.panel===b.dataset.target));
-    if(b.dataset.target==='traffic') loadTrafficCounters();
-  }));
+  // Fail closed: never expose the Admin when Firebase Authentication is unavailable.
+  $('#googleButton').innerHTML='';
+  $('#loginNote').textContent='Firebase Authentication is not configured. Admin access is disabled.';
 }
 function bindSimpleFields(){
-  $$('[data-path]').forEach(el=>{el.value=getPath(data,el.dataset.path)??'';el.addEventListener('change',()=>{setPath(data,el.dataset.path,el.value);save()})});
+  $$('[data-path]').forEach(el=>{el.value=getPath(data,el.dataset.path)??'';el.addEventListener('change',()=>{setPath(data,el.dataset.path,el.value);if(el.dataset.path.startsWith('theme.'))applyAdminThemeVars();save()})});
 }
 const THEME_PRESETS={
   original:{background:'#080808',surface:'#101010',text:'#ffffff',muted:'#b8b8b8',accentDark:'#8a5a00',accent:'#d69b00',accentBright:'#ffd700',accentLight:'#fff4a3',accentSoft:'#ffbf00',lineColor:'#d69b00',glowColor:'#ffd700'},
@@ -258,8 +174,9 @@ function bindThemePreset(){
   sel.addEventListener('change',()=>{
     if(sel.value==='custom') return;
     const preset=THEME_PRESETS[sel.value]; if(!preset) return;
-    data.theme={...(data.theme||{}),...preset,preset:sel.value};
+    data.theme={...(data.theme||{}),...preset,preset:sel.value,designVersion:'blue-collage-v1'};
     Object.entries(preset).forEach(([k,v])=>{const el=document.querySelector(`[data-path="theme.${k}"]`);if(el)el.value=v});
+    applyAdminThemeVars();
     save();
   });
   $$('[data-path^="theme."]').filter(el=>el!==sel).forEach(el=>el.addEventListener('input',()=>{if(sel.value!=='custom'){sel.value='custom';setPath(data,'theme.preset','custom')}}));
@@ -338,37 +255,45 @@ const localTrafficMonthKey=()=>{
     return `${parts.find(x=>x.type==='year')?.value}-${parts.find(x=>x.type==='month')?.value}`;
   }catch{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
 };
+const previousTrafficMonthKey=(key=localTrafficMonthKey())=>{
+  const [y,m]=String(key).split('-').map(Number);
+  if(!y||!m)return '';
+  const d=new Date(Date.UTC(y,m-2,15));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;
+};
 const formatMonthLabel=(key)=>{
   const [y,m]=String(key||'').split('-').map(Number);
-  if(!y||!m)return 'Current month';
+  if(!y||!m)return 'Month';
   try{return new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric',timeZone:'America/Chicago'}).format(new Date(Date.UTC(y,m-1,15)))}catch{return key}
 };
 async function loadTrafficCounters(){
-  const monthly=$('#monthlyTrafficCount'), global=$('#globalTrafficCount'), label=$('#monthlyTrafficLabel'), note=$('#trafficModeNote');
-  if(!monthly||!global)return;
-  monthly.textContent='…';global.textContent='…';
+  const current=$('#currentMonthCount'), previous=$('#previousMonthCount');
+  const currentLabel=$('#currentMonthLabel'), previousLabel=$('#previousMonthLabel');
+  if(!current||!previous)return;
+  const currentKey=localTrafficMonthKey(), previousKey=previousTrafficMonthKey(currentKey);
+  currentLabel.textContent=formatMonthLabel(currentKey);
+  previousLabel.textContent=formatMonthLabel(previousKey);
+  current.textContent='…'; previous.textContent='…';
   try{
     if(cloudOn()){
       const stats=await window.JZXCloud.loadTrafficStats();
-      monthly.textContent=Number(stats?.monthly||0).toLocaleString();
-      global.textContent=Number(stats?.global||0).toLocaleString();
-      label.textContent=formatMonthLabel(stats?.monthKey);
-      if(note)note.textContent='Live Firebase counters — shared across all visitors and devices.';
+      current.textContent=Number(stats?.current||0).toLocaleString();
+      previous.textContent=Number(stats?.previous||0).toLocaleString();
+      currentLabel.textContent=formatMonthLabel(stats?.currentMonthKey||currentKey);
+      previousLabel.textContent=formatMonthLabel(stats?.previousMonthKey||previousKey);
     }else{
-      const key=localTrafficMonthKey();
-      monthly.textContent=(Number(localStorage.getItem(`jzx-traffic-monthly-v1:${key}`))||0).toLocaleString();
-      global.textContent=(Number(localStorage.getItem('jzx-traffic-global-v1'))||0).toLocaleString();
-      label.textContent=`${formatMonthLabel(key)} — local preview`;
-      if(note)note.textContent='Local preview only — these counts come from visits in this browser. Enable Firebase for real public-site totals.';
+      current.textContent=(Number(localStorage.getItem(`jzx-traffic-monthly-v1:${currentKey}`))||0).toLocaleString();
+      previous.textContent=(Number(localStorage.getItem(`jzx-traffic-monthly-v1:${previousKey}`))||0).toLocaleString();
     }
   }catch(e){
-    console.warn(e);monthly.textContent='—';global.textContent='—';
-    if(note)note.textContent=e.message||'Could not load traffic counters.';
+    console.warn(e);
+    current.textContent=(Number(localStorage.getItem(`jzx-traffic-monthly-v1:${currentKey}`))||0).toLocaleString();
+    previous.textContent=(Number(localStorage.getItem(`jzx-traffic-monthly-v1:${previousKey}`))||0).toLocaleString();
   }
 }
 $('#refreshTrafficBtn')?.addEventListener('click',loadTrafficCounters);
 
-function render(){bindNav();bindSimpleFields();bindThemePreset();bindStaticImageEditors();renderServices();renderProjects();renderTrust();renderProcess();renderTestimonials();renderFaq();renderCatalogue();bindVisibilityUI();const cs=$('#cloudStatus');if(cs)cs.textContent=cloudOn()?'Firebase configured — sign in and Publish Changes to sync all visitors.':'Local preview mode — configure Firebase in admin-config.js for production cloud sync.';}
+function render(){bindNav();bindSimpleFields();bindThemePreset();bindStaticImageEditors();renderServices();renderProjects();renderTrust();renderProcess();renderTestimonials();renderFaq();renderCatalogue();bindVisibilityUI();updateHistoryButtons();loadTrafficCounters();const cs=$('#cloudStatus');if(cs)cs.textContent=cloudOn()?'Firebase configured — drafts stay local until you choose Publish Changes.':'Firebase is not configured.';}
 
 const publishNow=async()=>{
   if(!cloudOn()){
@@ -387,6 +312,8 @@ const publishNow=async()=>{
     if(data.cloudImages) delete data.cloudImages;
     await window.JZXCloud.saveSettings(data);
     localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+    localStorage.setItem(DRAFT_KEY,JSON.stringify(data));
+    lastDraftSnapshot=clone(data);
     status('Published settings. Images are managed from the project images folder.');
   }catch(e){
     console.error(e);
@@ -394,10 +321,42 @@ const publishNow=async()=>{
   }
 };
 $('#publishBtn')?.addEventListener('click',publishNow);$('#publishCloudBtn')?.addEventListener('click',publishNow);
-$('#syncCloudBtn')?.addEventListener('click',async()=>{if(!cloudOn())return alert('Firebase is not configured yet.');try{const remote=await window.JZXCloud.loadSettings();if(remote){data=deepMerge(defaults,remote);localStorage.setItem(STORAGE_KEY,JSON.stringify(data));location.reload()}else alert('No published settings document exists yet.')}catch(e){alert(e.message||'Could not load cloud settings.')}});
+$('#previewDraftBtn')?.addEventListener('click',()=>{
+  localStorage.setItem(DRAFT_KEY,JSON.stringify(data));
+  window.open('index.html?preview=1','_blank','noopener');
+});
+$('#undoBtn')?.addEventListener('click',()=>{
+  const undo=readHistory(UNDO_KEY);
+  if(!undo.length)return;
+  const previous=undo.pop();
+  const redo=readHistory(REDO_KEY);
+  redo.push(clone(data));
+  writeHistory(UNDO_KEY,undo);writeHistory(REDO_KEY,redo);
+  localStorage.setItem(DRAFT_KEY,JSON.stringify(previous));
+  location.reload();
+});
+$('#redoBtn')?.addEventListener('click',()=>{
+  const redo=readHistory(REDO_KEY);
+  if(!redo.length)return;
+  const next=redo.pop();
+  const undo=readHistory(UNDO_KEY);
+  undo.push(clone(data));
+  writeHistory(REDO_KEY,redo);writeHistory(UNDO_KEY,undo);
+  localStorage.setItem(DRAFT_KEY,JSON.stringify(next));
+  location.reload();
+});
+$('#syncCloudBtn')?.addEventListener('click',async()=>{
+  if(!cloudOn())return alert('Firebase is not configured yet.');
+  if(!confirm('Load the published cloud settings and replace the current local draft on this device?'))return;
+  try{const remote=await window.JZXCloud.loadSettings();if(remote){const undo=readHistory(UNDO_KEY);undo.push(clone(data));writeHistory(UNDO_KEY,undo);writeHistory(REDO_KEY,[]);data=deepMerge(defaults,remote);localStorage.setItem(DRAFT_KEY,JSON.stringify(data));location.reload()}else alert('No published settings document exists yet.')}catch(e){alert(e.message||'Could not load cloud settings.')}
+});
 
 $('#exportBtn').addEventListener('click',()=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='jmx-site-settings.json';a.click();URL.revokeObjectURL(a.href)});
-$('#importInput').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{data=deepMerge(defaults,JSON.parse(await f.text()));save();location.reload()}catch{alert('Invalid settings file.')}});
-$('#resetBtn').addEventListener('click',async()=>{if(!confirm('Reset all editable settings to the original website defaults? Images in the project images folder will not be deleted.'))return;data=clone(defaults);localStorage.setItem(STORAGE_KEY,JSON.stringify(data));const db=await openDb();await new Promise((res,rej)=>{const r=db.transaction(STORE,'readwrite').objectStore(STORE).clear();r.onsuccess=()=>res();r.onerror=()=>rej(r.error)});if(cloudOn()){try{await window.JZXCloud.saveSettings(data)}catch{}}location.reload()});
+$('#importInput').addEventListener('change',async e=>{
+  const f=e.target.files[0];if(!f)return;
+  if(!confirm('Import this settings file and replace the current local draft? Nothing will be published until you choose Publish Changes.')){e.target.value='';return;}
+  try{const previous=clone(data);data=deepMerge(defaults,JSON.parse(await f.text()));const undo=readHistory(UNDO_KEY);undo.push(previous);writeHistory(UNDO_KEY,undo);writeHistory(REDO_KEY,[]);data.__meta=data.__meta||{};data.__meta.localUpdatedAt=Date.now();localStorage.setItem(DRAFT_KEY,JSON.stringify(data));location.reload()}catch{alert('Invalid settings file.')}
+});
+$('#resetBtn').addEventListener('click',async()=>{if(!confirm('Reset all editable settings to the original website defaults? Images in the project images folder will not be deleted.'))return;const undo=readHistory(UNDO_KEY);undo.push(clone(data));writeHistory(UNDO_KEY,undo);writeHistory(REDO_KEY,[]);data=clone(defaults);data.__meta=data.__meta||{};data.__meta.localUpdatedAt=Date.now();localStorage.setItem(DRAFT_KEY,JSON.stringify(data));const db=await openDb();await new Promise((res,rej)=>{const r=db.transaction(STORE,'readwrite').objectStore(STORE).clear();r.onsuccess=()=>res();r.onerror=()=>rej(r.error)});location.reload()});
 initLogin();
 })();

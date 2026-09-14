@@ -1,0 +1,15 @@
+{
+  "name": "jva-estimate-functions",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.16.0",
+    "archiver": "^7.0.1",
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.0.1",
+    "nodemailer": "^6.9.16"
+  }
+}

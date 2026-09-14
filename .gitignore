@@ -1,0 +1,9 @@
+node_modules/
+.firebase/
+*.zip
+*.log
+.env
+.env.*
+*.pem
+*service-account*.json
+*serviceAccount*.json

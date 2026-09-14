@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://jvaremodeling.com", "https://www.jvaremodeling.com"],
+    "method": ["PUT"],
+    "responseHeader": ["Content-Type"],
+    "maxAgeSeconds": 3600
+  }
+]

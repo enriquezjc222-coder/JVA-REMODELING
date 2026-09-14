@@ -5,21 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JMX Remodeling Admin</title>
   <link rel="stylesheet" href="admin.css?v=20260822-no-storage-images">
+  <link rel="stylesheet" href="shared-theme.css?v=full-scroll-hero-switch-v1">
 </head>
-<body>
+<body class="admin-site">
   <div id="loginView" class="login-shell">
     <div class="login-card">
       <div class="brand">JMX</div>
       <h1>Website Admin</h1>
       <p>Manage contact information, logos, hero images, services, projects and catalogue photos without editing code.</p>
       <div id="googleButton"></div>
-      <button id="previewLogin" class="btn primary" type="button">Open Admin Preview</button>
-      <p class="small" id="loginNote">Preview login works on localhost. Google login is ready after adding your Google Client ID in <code>admin-config.js</code>.</p>
+      <p class="small" id="loginNote">Sign in with the authorized Google account to access the website administrator.</p>
     </div>
   </div>
 
   <div id="adminView" class="admin-shell hidden">
     <aside class="sidebar">
+      <div class="sidebar-monthly-counters" aria-label="Monthly website traffic">
+        <article class="sidebar-counter-card">
+          <span class="sidebar-counter-title">Previous Month</span>
+          <small id="previousMonthLabel">Previous month</small>
+          <strong id="previousMonthCount">0</strong>
+        </article>
+        <article class="sidebar-counter-card">
+          <span class="sidebar-counter-title">Current Month</span>
+          <small id="currentMonthLabel">Current month</small>
+          <strong id="currentMonthCount">0</strong>
+        </article>
+        <button class="sidebar-counter-refresh" id="refreshTrafficBtn" type="button">Refresh</button>
+      </div>
       <div class="sidebar-brand">JMX <span>ADMIN</span></div>
       <nav id="adminNav">
         <button data-target="company" class="active">Company</button>
@@ -27,7 +40,6 @@
         <button data-target="theme">Theme</button>
         <button data-target="seo">SEO & Marketing</button>
         <button data-target="production">Production & Cloud</button>
-        <button data-target="traffic">Traffic Counters</button>
         <button data-target="services">Services</button>
         <button data-target="projects">Projects</button>
         <button data-target="trust">Why Choose Us</button>
@@ -45,7 +57,7 @@
     <main class="content">
       <header class="topbar">
         <div><h1>JMX Website Admin</h1><p id="saveStatus">Changes are saved in this browser.</p></div>
-        <div class="top-actions"><button class="btn primary" id="publishBtn" type="button">Publish Changes</button><button class="btn" id="exportBtn">Export Settings</button><label class="btn file-label">Import Settings<input id="importInput" type="file" accept="application/json"></label><button class="btn danger" id="resetBtn">Reset</button></div>
+        <div class="top-actions"><button class="btn primary" id="publishBtn" type="button">Publish Changes</button><button class="btn" id="previewDraftBtn" type="button">Preview Draft</button><button class="btn" id="undoBtn" type="button">Undo</button><button class="btn" id="redoBtn" type="button">Redo</button><button class="btn" id="exportBtn">Export Settings</button><label class="btn file-label">Import Settings<input id="importInput" type="file" accept="application/json"></label><button class="btn danger" id="resetBtn">Reset</button></div>
       </header>
 
       <section class="panel active" data-panel="company">
@@ -67,10 +79,45 @@
       <section class="panel" data-panel="hero">
         <h2>Hero & Logos</h2>
         <div class="form-grid"><label>Small heading<input data-path="hero.small"></label><label>Button text<input data-path="hero.cta"></label><label class="full">Hero heading (HTML allowed)<textarea rows="3" data-path="hero.messageHtml"></textarea></label><label class="full">Description<textarea rows="3" data-path="hero.description"></textarea></label></div>
-        <div class="image-grid">
-          <div class="image-editor" data-image-key="headerLogo"><h3>Header Logo</h3><img><p class="small image-folder-note">Managed from the <code>images</code> folder in the project.</p></div>
-          <div class="image-editor" data-image-key="heroBackground"><h3>Left Hero Image</h3><img><p class="small image-folder-note">Managed from the <code>images</code> folder in the project.</p><p class="small">The website keeps the same dark/faded effect automatically.</p></div>
-          <div class="image-editor" data-image-key="mainLogo"><h3>Right Main Logo</h3><img><p class="small image-folder-note">Managed from the <code>images</code> folder in the project.</p></div>
+        <div class="hero-layout-settings">
+          <h3>Hero Settings</h3>
+          <div class="hero-layout-choice" aria-label="Hero Layout">
+            <span class="hero-layout-label">Hero Layout</span>
+            <div class="hero-layout-switch-row">
+              <label class="hero-exclusive-switch">
+                <span>Single Hero Image</span>
+                <input id="heroLayoutSingle" type="checkbox" aria-label="Single Hero Image">
+                <span class="hero-exclusive-slider" aria-hidden="true"></span>
+              </label>
+              <label class="hero-exclusive-switch">
+                <span>Split Hero Images</span>
+                <input id="heroLayoutSplit" type="checkbox" aria-label="Split Hero Images">
+                <span class="hero-exclusive-slider" aria-hidden="true"></span>
+              </label>
+            </div>
+            <input type="hidden" data-path="hero.layout" value="split">
+          </div>
+          <div class="hero-upload-grid hero-local-image-grid">
+            <div class="hero-upload-card hero-local-image-card" data-hero-key="heroSingle" data-hero-mode="single" data-fallback="images/hero-kitchen.jpg">
+              <h3>Single Hero Image</h3>
+              <img src="images/hero-kitchen.jpg" alt="Single hero preview">
+              <p class="small image-folder-note"><strong>Image preview loaded from the images folder.</strong><br>Replace <code>images/hero-kitchen.jpg</code> in the project/GitHub images folder to update this image.</p>
+            </div>
+            <div class="hero-upload-card hero-local-image-card" data-hero-key="heroLeft" data-hero-mode="split" data-fallback="images/hero-kitchen.jpg">
+              <h3>Hero Image Left</h3>
+              <img src="images/hero-kitchen.jpg" alt="Left hero preview">
+              <p class="small image-folder-note"><strong>Image preview loaded from the images folder.</strong><br>Replace <code>images/hero-kitchen.jpg</code> in the project/GitHub images folder to update this image.</p>
+            </div>
+            <div class="hero-upload-card hero-local-image-card" data-hero-key="heroRight" data-hero-mode="split" data-fallback="images/jzx-main-logo.jpg">
+              <h3>Hero Image Right</h3>
+              <img src="images/jzx-main-logo.jpg" alt="Right hero preview">
+              <p class="small image-folder-note"><strong>Image preview loaded from the images folder.</strong><br>Replace <code>images/jzx-main-logo.jpg</code> in the project/GitHub images folder to update this image.</p>
+            </div>
+          </div>
+          <p class="small hero-local-source-note">Hero image files are managed from <code>images/</code>. The Admin only previews them; it does not upload, replace, or remove Hero images.</p>
+        </div>
+        <div class="image-grid hero-logo-grid">
+          <div class="image-editor" data-image-key="headerLogo"><h3>Header Logo</h3><img><p class="small image-folder-note">Header Logo is independent from the Hero Layout and remains in the website header.</p></div>
         </div>
       </section>
 
@@ -179,29 +226,6 @@
         </div>
       </section>
 
-      <section class="panel" data-panel="traffic">
-        <h2>Traffic Counters</h2>
-        <p class="small">Counts page visits / page loads. If the same person returns or refreshes the website, it counts again — exactly as requested.</p>
-        <div class="traffic-stats-grid">
-          <article class="traffic-stat-card">
-            <span class="traffic-stat-label">CURRENT MONTH</span>
-            <strong id="monthlyTrafficCount">0</strong>
-            <small id="monthlyTrafficLabel">This month</small>
-          </article>
-          <article class="traffic-stat-card">
-            <span class="traffic-stat-label">ALL-TIME TOTAL</span>
-            <strong id="globalTrafficCount">0</strong>
-            <small>Never resets</small>
-          </article>
-        </div>
-        <div class="status-card">
-          <h3>How it works</h3>
-          <p>The monthly counter automatically starts a new count on the first day of each month using the America/Chicago timezone. The all-time counter keeps increasing permanently.</p>
-          <p id="trafficModeNote">Local preview counters are stored only in this browser. In production, enable Firebase so the totals are shared across all visitors and devices.</p>
-          <button class="btn" id="refreshTrafficBtn" type="button">Refresh Counters</button>
-        </div>
-      </section>
-
       <section class="panel" data-panel="services"><h2>Services</h2><div id="servicesEditor" class="repeat-grid"></div></section>
       <section class="panel" data-panel="projects"><h2>Before & After Projects</h2><div id="projectsEditor" class="image-grid"></div></section>
       <section class="panel" data-panel="trust"><h2>Why Choose Us / Trust</h2><div class="form-grid"><label>Small heading<input data-path="trust.eyebrow"></label><label>Title<input data-path="trust.title"></label><label class="full">Introduction<textarea rows="3" data-path="trust.intro"></textarea></label><label>Credentials title<input data-path="trust.credentialsTitle"></label><label class="full">Licenses / insurance / warranty / experience text<textarea rows="4" data-path="trust.credentialsText"></textarea></label></div><h3 class="editor-subtitle">Reasons to choose JMX</h3><div id="trustEditor" class="repeat-grid"></div></section>
@@ -243,14 +267,15 @@
     </main>
   </div>
 
-  <script src="site-defaults.js?v=20260822-device-sync-preview-final"></script>
-  <script src="admin-config.js?v=20260822-device-sync-preview-final"></script>
+  <script src="site-defaults.js?v=20260913-production-final"></script>
+  <script src="admin-config.js?v=20260913-production-final"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
-  <script src="cloud-core.js?v=20260822-device-sync-preview-final"></script>
+  <script src="cloud-core.js?v=20260913-production-final"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="admin.js?v=20260822-no-storage-images"></script>
+  <script src="hero-admin-controls.js?v=hero-local-images-v1"></script>
 </body>
 </html>
